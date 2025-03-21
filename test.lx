@@ -1,0 +1,14 @@
+Vector3 = (
+	x: F32
+	y: F32
+	z: F32
+
+	new(x: F32, y: F32, z: F32): Vector3(x, y, z)
+
+	add(v1: Vector3, v2: Vector3): {
+		new_x = v1.x + v2.x
+		new_y = v1.y + v2.y
+		new_z = v1.z + v2.z
+		Vector3(new_x, new_y, new_z)
+	}
+)
