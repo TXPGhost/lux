@@ -19,19 +19,6 @@ impl Parse for ASTIdent {
                 ))
             }
         };
-        if let Some(Token::Open(Grouping::Paren)) = parser.cur() {
-            parser.next()?;
-            let args = ASTList::parse(parser)?;
-            let Some(Token::Close(Grouping::Paren)) = parser.cur() else {
-                return Err(ParseError::ExpectedToken(
-                    "while parsing function ident",
-                    Token::Close(Grouping::Paren),
-                    parser.cur_loc().cloned(),
-                ));
-            };
-            parser.next()?;
-            return Ok(ASTIdent::Func(Box::new(ident), args));
-        }
         Ok(ident)
     }
 }

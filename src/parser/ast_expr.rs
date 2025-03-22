@@ -134,7 +134,7 @@ impl ASTExpr {
                     Operator::Times,
                 ],
             ),
-            // fields and indexes (`.`, `[]`)
+            // fields indexes, and calls (`.`, `[]`, `()`)
             9 => {
                 let mut expr = ASTExpr::parse_prec(parser, prec + 1)?;
                 loop {
@@ -149,6 +149,20 @@ impl ASTExpr {
                             });
                             continue;
                         }
+                        Some(Token::Open(Grouping::Paren)) => {
+                            parser.eat()?;
+                            let args = ASTList::parse(parser)?;
+                            expr = ASTExpr::Func(Box::new(expr), args);
+                            if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
+                                return Err(ParseError::ExpectedToken(
+                                    "while parsing index",
+                                    Token::Close(Grouping::Bracket),
+                                    parser.cur_loc().cloned(),
+                                ));
+                            }
+                            parser.eat()?;
+                            continue;
+                        }
                         Some(Token::Open(Grouping::Bracket)) => {
                             parser.eat()?;
                             let index = ASTExpr::parse(parser)?;
@@ -160,6 +174,7 @@ impl ASTExpr {
                                     parser.cur_loc().cloned(),
                                 ));
                             }
+                            parser.eat()?;
                             continue;
                         }
                         _ => break,

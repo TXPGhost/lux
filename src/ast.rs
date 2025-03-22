@@ -17,6 +17,7 @@ pub struct ASTList<T>(pub Vec<T>);
 pub enum ASTMember {
     Expr(ASTExpr),
     Named(ASTIdent, ASTExpr),
+    NamedFunc(ASTIdent, ASTList<ASTMember>, ASTExpr),
 }
 
 #[derive(Clone, Debug)]
@@ -26,6 +27,7 @@ pub enum ASTExpr {
     Lambda(Box<ASTExpr>, Box<ASTExpr>),
     Index(Box<ASTExpr>, Box<ASTExpr>),
     Struct(ASTList<ASTMember>),
+    Func(Box<ASTExpr>, ASTList<ASTMember>),
     Block(ASTList<ASTStmt>),
 }
 
@@ -33,7 +35,6 @@ pub enum ASTExpr {
 pub enum ASTIdent {
     TIdent(Rc<str>),
     VIdent(Rc<str>),
-    Func(Box<Self>, ASTList<ASTMember>),
 }
 
 #[derive(Clone, Debug)]
