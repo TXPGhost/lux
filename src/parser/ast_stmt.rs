@@ -7,11 +7,11 @@ impl Parse for ASTStmt {
         let expr = ASTExpr::parse(parser)?;
         let mut ty = None;
         if matches!(parser.cur(), Some(Token::Colon)) {
-            parser.eat()?;
+            parser.eat();
             ty = Some(ASTExpr::parse(parser)?);
         }
         if matches!(parser.cur(), Some(Token::Equals)) {
-            parser.eat()?;
+            parser.eat();
             let val = ASTExpr::parse(parser)?;
             let ASTExpr::Ident(ident) = expr else {
                 return Err(ParseError::ExpectedIdent(

@@ -1,3 +1,5 @@
+use std::num::ParseIntError;
+
 use crate::{
     ast::*,
     lexer::{LocatedToken, Token},
@@ -23,11 +25,10 @@ impl<'a> Parser<'a> {
         ASTList::parse(self)
     }
 
-    fn eat(&mut self) -> Result<(), ParseError> {
+    fn eat(&mut self) {
         println!("eat {} -> {}", self.idx, self.idx + 1);
         println!("{:?}", self.cur());
         self.idx += 1;
-        Ok(())
     }
 
     fn cur(&self) -> Option<&'a Token> {
@@ -54,7 +55,7 @@ impl<'a> Parser<'a> {
     fn next(&mut self) -> Result<Option<&'a LocatedToken>, ParseError> {
         println!("next: {}", self.idx);
         let res = self.tokens.get(self.idx);
-        self.eat()?;
+        self.eat();
         Ok(res)
     }
 }
@@ -65,7 +66,7 @@ pub enum ParseError {
     ExpectedToken(&'static str, Token, Option<LocatedToken>),
     ExpectedTokens(&'static str, Vec<Token>, Option<LocatedToken>),
     ExpectedIdent(&'static str, Option<LocatedToken>),
-    IllegalPrecedenceLevel(usize, Option<LocatedToken>),
+    NumberParseError(ParseIntError),
 }
 
 pub trait Parse: Sized {

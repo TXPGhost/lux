@@ -13,7 +13,7 @@ impl Parse for ASTMember {
             let ident = ASTIdent::parse(parser)?;
             let mut args = None;
             if matches!(parser.cur(), Some(Token::Open(Grouping::Paren))) {
-                parser.eat()?;
+                parser.eat();
                 args = Some(ASTList::parse(parser)?);
                 let Some(Token::Close(Grouping::Paren)) = parser.cur() else {
                     return Err(ParseError::ExpectedToken(
@@ -22,11 +22,11 @@ impl Parse for ASTMember {
                         parser.cur_loc().cloned(),
                     ));
                 };
-                parser.eat()?;
+                parser.eat();
             }
             if matches!(parser.cur(), Some(Token::Colon)) {
                 println!("parsing identified member");
-                parser.eat()?;
+                parser.eat();
                 println!("...begin expr (cur = {:?})", parser.cur());
                 let expr = ASTExpr::parse(parser)?;
                 println!("...end expr");

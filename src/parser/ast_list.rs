@@ -5,7 +5,7 @@ use super::Parse;
 impl<T: Parse + std::fmt::Debug> Parse for ASTList<T> {
     fn parse(parser: &mut super::Parser<'_>) -> Result<Self, super::ParseError> {
         if matches!(parser.cur(), Some(Token::Separator(_))) {
-            parser.eat()?;
+            parser.eat();
         }
 
         let mut list = Vec::new();
@@ -15,7 +15,7 @@ impl<T: Parse + std::fmt::Debug> Parse for ASTList<T> {
             list.push(T::parse(parser)?);
             if matches!(parser.cur(), Some(Token::Separator(_))) {
                 println!("\t\tconsumming newline!");
-                parser.eat()?;
+                parser.eat();
             }
         }
 

@@ -23,7 +23,7 @@ impl ASTExpr {
         if let Some(Token::Operator(operator)) = parser.cur() {
             for op in operators {
                 if op == operator {
-                    parser.eat()?;
+                    parser.eat();
                     let rhs = ASTExpr::parse_prec(parser, next_prec)?;
                     return Ok(ASTExpr::Binop(ASTBinop {
                         lhs: Box::new(expr),
@@ -62,7 +62,7 @@ impl ASTExpr {
             let mut proceed = false;
             for op in operators {
                 if op == operator {
-                    parser.eat()?;
+                    parser.eat();
                     let rhs = ASTExpr::parse_prec(parser, prec)?;
                     expr = ASTExpr::Binop(ASTBinop {
                         lhs: Box::new(expr),
@@ -140,7 +140,7 @@ impl ASTExpr {
                 loop {
                     match parser.cur() {
                         Some(Token::Operator(Operator::Dot)) => {
-                            parser.eat()?;
+                            parser.eat();
                             let rhs = ASTExpr::parse_prec(parser, prec)?;
                             expr = ASTExpr::Binop(ASTBinop {
                                 lhs: Box::new(expr),
@@ -150,7 +150,7 @@ impl ASTExpr {
                             continue;
                         }
                         Some(Token::Open(Grouping::Paren)) => {
-                            parser.eat()?;
+                            parser.eat();
                             let args = ASTList::parse(parser)?;
                             expr = ASTExpr::Func(Box::new(expr), args);
                             if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
@@ -160,11 +160,11 @@ impl ASTExpr {
                                     parser.cur_loc().cloned(),
                                 ));
                             }
-                            parser.eat()?;
+                            parser.eat();
                             continue;
                         }
                         Some(Token::Open(Grouping::Bracket)) => {
-                            parser.eat()?;
+                            parser.eat();
                             let index = ASTExpr::parse(parser)?;
                             expr = ASTExpr::Index(Box::new(expr), Box::new(index));
                             if !matches!(parser.cur(), Some(Token::Close(Grouping::Bracket))) {
@@ -174,7 +174,7 @@ impl ASTExpr {
                                     parser.cur_loc().cloned(),
                                 ));
                             }
-                            parser.eat()?;
+                            parser.eat();
                             continue;
                         }
                         _ => break,
@@ -186,7 +186,7 @@ impl ASTExpr {
             10 => match parser.cur() {
                 Some(Token::Open(Grouping::Paren)) => {
                     println!("PARSING EXPLICIT PARENS...");
-                    parser.eat()?;
+                    parser.eat();
                     let list = ASTList::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
                         return Err(ParseError::ExpectedToken(
@@ -195,12 +195,12 @@ impl ASTExpr {
                             parser.cur_loc().cloned(),
                         ));
                     }
-                    parser.eat()?;
+                    parser.eat();
                     Ok(ASTExpr::Struct(list))
                 }
                 Some(Token::Open(Grouping::Curly)) => {
                     println!("PARSING EXPLICIT CURLYS...");
-                    parser.eat()?;
+                    parser.eat();
                     let list = ASTList::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Curly))) {
                         return Err(ParseError::ExpectedToken(
@@ -209,17 +209,28 @@ impl ASTExpr {
                             parser.cur_loc().cloned(),
                         ));
                     }
-                    parser.eat()?;
+                    parser.eat();
                     Ok(ASTExpr::Block(list))
                 }
                 _ => Self::parse_prec(parser, prec + 1),
             },
-            // identifiers
-            11 => Ok(ASTExpr::Ident(ASTIdent::parse(parser)?)),
-            prec => Err(ParseError::IllegalPrecedenceLevel(
-                prec,
-                parser.cur_loc().cloned(),
-            )),
+            // identifiers and literals
+            11 => match parser.cur() {
+                Some(Token::TIdent(_) | Token::VIdent(_)) => {
+                    Ok(ASTExpr::Ident(ASTIdent::parse(parser)?))
+                }
+                Some(Token::Number(n)) => {
+                    parser.eat();
+                    Ok(ASTExpr::Number(
+                        n.parse().map_err(ParseError::NumberParseError)?,
+                    ))
+                }
+                _ => Err(ParseError::UnexpectedToken(
+                    "while parsing expr",
+                    parser.cur_loc().cloned(),
+                )),
+            },
+            _ => unreachable!(),
         }
     }
 }

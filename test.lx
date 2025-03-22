@@ -12,3 +12,9 @@ Vector3: (
 		Vector3(new_x, new_y, new_z)
 	}
 )
+
+main(): {
+	x = 1
+	y = 2
+	z = x + y
+}
