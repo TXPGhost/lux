@@ -20,12 +20,14 @@ pub enum LexerError {
 #[derive(Clone, Debug)]
 pub struct Lexer {
     source: Option<String>,
-    tokens: Vec<Token>,
+    tokens: Vec<LocatedToken>,
     cur_tok: String,
     tok_kind: TokKind,
     prev: [char; 2],
     stall: usize,
     is_decimal: bool,
+    line: usize,
+    col: usize,
 }
 
 impl Lexer {
@@ -41,6 +43,8 @@ impl Lexer {
             prev: ['\0'; 2],
             stall: 0,
             is_decimal: false,
+            line: 1,
+            col: 1,
         })
     }
 
@@ -54,13 +58,14 @@ impl Lexer {
             prev: ['\0'; 2],
             stall: 0,
             is_decimal: false,
+            line: 1,
+            col: 1,
         }
     }
 
     /// Attempts to tokenize an identifier. Returns `true` if the character `c` was part of an
     /// identifier.
     fn tokenize_ident(&mut self, c: char) -> Result<bool, LexerError> {
-        // dbg!(&self);
         if self.tok_kind == TokKind::Number {
             return Ok(false);
         }
@@ -91,13 +96,19 @@ impl Lexer {
             self.cur_tok.push(c);
             Ok(true)
         } else if !self.cur_tok.is_empty() {
+            let len = self.cur_tok.len();
             let mut tok_ident = String::new();
             std::mem::swap(&mut self.cur_tok, &mut tok_ident);
-            match self.tok_kind {
-                TokKind::TIdent => self.tokens.push(Token::TIdent(tok_ident)),
-                TokKind::VIdent => self.tokens.push(Token::VIdent(tok_ident)),
-                _ => return Err(LexerError::IllegalIdentifier(self.cur_tok.clone())),
-            }
+            self.tokens.push(LocatedToken {
+                token: match self.tok_kind {
+                    TokKind::TIdent => Token::TIdent(tok_ident),
+                    TokKind::VIdent => Token::VIdent(tok_ident),
+                    _ => return Err(LexerError::IllegalIdentifier(self.cur_tok.clone())),
+                },
+                line: self.line,
+                col_start: self.col - len,
+                col_end: self.col - 1,
+            });
             self.tok_kind = TokKind::Unknown;
             Ok(false)
         } else {
@@ -122,10 +133,16 @@ impl Lexer {
             }
             Ok(true)
         } else if !self.cur_tok.is_empty() {
+            let len = self.cur_tok.len();
             let mut tok_ident = String::new();
             std::mem::swap(&mut self.cur_tok, &mut tok_ident);
             match self.tok_kind {
-                TokKind::Number => self.tokens.push(Token::Number(tok_ident)),
+                TokKind::Number => self.tokens.push(LocatedToken {
+                    token: Token::Number(tok_ident),
+                    line: self.line,
+                    col_start: self.col - len,
+                    col_end: self.col - 1,
+                }),
                 _ => return Err(LexerError::IllegalNumber(self.cur_tok.clone())),
             }
             self.tok_kind = TokKind::Unknown;
@@ -137,33 +154,40 @@ impl Lexer {
 
     /// Attempts to tokenize the given character and two-character lookahead.
     pub fn tokenize_char(&mut self, c: [char; 3]) -> Result<(), LexerError> {
-        dbg!(&self);
         if self.tokenize_ident(c[0])? {
             return Ok(());
         };
         if self.tokenize_number(c[0])? {
             return Ok(());
         };
+        let mut push_token = |token, len| {
+            self.tokens.push(LocatedToken {
+                token,
+                line: self.line,
+                col_start: self.col,
+                col_end: self.col + (len - 1),
+            })
+        };
         match c {
             ['\0', _, _] => (),
             [' ' | '\t', _, _] => (),
-            [':', '=', _] => self.tokens.push(Token::Assign),
-            ['=', _, _] => self.tokens.push(Token::Equals),
-            [':', _, _] => self.tokens.push(Token::Colon),
-            [',', _, _] => self.tokens.push(Token::Separator(Separator::Comma)),
+            [':', '=', _] => push_token(Token::Assign, 2),
+            ['=', _, _] => push_token(Token::Equals, 1),
+            [':', _, _] => push_token(Token::Colon, 1),
+            [',', _, _] => push_token(Token::Separator(Separator::Comma), 1),
             ['\n', '\n', _] => {
-                self.tokens.push(Token::Separator(Separator::DoubleNewline));
+                push_token(Token::Separator(Separator::DoubleNewline), 2);
                 self.stall = 2;
             }
-            ['\n', _, _] => self.tokens.push(Token::Separator(Separator::Newline)),
-            ['(', _, _] => self.tokens.push(Token::Open(Grouping::Paren)),
-            ['[', _, _] => self.tokens.push(Token::Open(Grouping::Bracket)),
-            ['{', _, _] => self.tokens.push(Token::Open(Grouping::Curly)),
-            ['<', _, _] => self.tokens.push(Token::Open(Grouping::Angle)),
-            [')', _, _] => self.tokens.push(Token::Close(Grouping::Paren)),
-            [']', _, _] => self.tokens.push(Token::Close(Grouping::Bracket)),
-            ['}', _, _] => self.tokens.push(Token::Close(Grouping::Curly)),
-            ['>', _, _] => self.tokens.push(Token::Close(Grouping::Angle)),
+            ['\n', _, _] => push_token(Token::Separator(Separator::Newline), 1),
+            ['(', _, _] => push_token(Token::Open(Grouping::Paren), 1),
+            ['[', _, _] => push_token(Token::Open(Grouping::Bracket), 1),
+            ['{', _, _] => push_token(Token::Open(Grouping::Curly), 1),
+            ['<', _, _] => push_token(Token::Open(Grouping::Angle), 1),
+            [')', _, _] => push_token(Token::Close(Grouping::Paren), 1),
+            [']', _, _] => push_token(Token::Close(Grouping::Bracket), 1),
+            ['}', _, _] => push_token(Token::Close(Grouping::Curly), 1),
+            ['>', _, _] => push_token(Token::Close(Grouping::Angle), 1),
             _ => {
                 // determine the operator
                 let mut single_op = None;
@@ -191,10 +215,10 @@ impl Lexer {
                     (_, Some(double_op)) => (double_op, 2),
                 };
                 if c[len] == '=' {
-                    self.tokens.push(Token::OperatorEquals(op));
+                    push_token(Token::OperatorEquals(op), len);
                     self.stall += len;
                 } else {
-                    self.tokens.push(Token::Operator(op));
+                    push_token(Token::Operator(op), len);
                     self.stall += len - 1;
                 }
             }
@@ -203,26 +227,62 @@ impl Lexer {
     }
 
     /// Attempts to tokenize the source file.
-    pub fn tokenize(mut self) -> Result<Vec<Token>, LexerError> {
+    pub fn tokenize(mut self) -> Result<Vec<LocatedToken>, LexerError> {
         let Some(source) = self.source.take() else {
             return Err(LexerError::NoSourceProvided);
         };
-        for c in source.chars() {
+        // queue of current line and column
+        let mut line = [1; 4];
+        let mut col = [1; 4];
+
+        // process a single character
+        let mut process_char = |c| {
             if self.prev[0] != '\0' && self.stall == 0 {
-                self.tokenize_char([self.prev[0], self.prev[1], c])?;
+                match self.tokenize_char([self.prev[0], self.prev[1], c]) {
+                    Ok(()) => (),
+                    Err(e) => return Err(e),
+                };
             }
             self.prev[0] = self.prev[1];
             self.prev[1] = c;
+
             if self.stall > 0 {
                 self.stall -= 1;
             }
+
+            if c == '\n' {
+                col[3] = 1;
+                line[3] += 1;
+            } else if c == '\t' {
+                col[3] += 4;
+            } else {
+                col[3] += 1;
+            }
+            for i in 0..3 {
+                col[i] = col[i + 1];
+                line[i] = line[i + 1];
+            }
+            self.col = col[0];
+            self.line = line[0];
+            Ok(())
+        };
+
+        // process each character in source, plus a bit of "overflow" to clear buffers
+        for c in source.chars() {
+            process_char(c)?;
         }
-        self.tokenize_char([self.prev[0], self.prev[1], '\0'])?;
-        self.tokenize_char([self.prev[1], '\0', '\0'])?;
-        self.tokenize_char(['\0', '\0', '\0'])?;
+        for _ in 0..3 {
+            process_char('\0')?;
+        }
 
         // clean up trailing separators
-        while matches!(self.tokens.last(), Some(Token::Separator(_))) {
+        while matches!(
+            self.tokens.last(),
+            Some(LocatedToken {
+                token: Token::Separator(_),
+                ..
+            })
+        ) {
             self.tokens.pop();
         }
 
@@ -292,23 +352,31 @@ impl Display for Separator {
     }
 }
 
-#[derive(Clone, Debug, EnumIter)]
+#[derive(Clone, Copy, Debug, EnumIter, PartialEq, Eq)]
 pub enum Operator {
     Dot,
     Plus,
     Minus,
     Times,
     Divide,
+    Modulo,
     Concat,
     Repeat,
     And,
     Or,
     Not,
+    Backslash,
     ThinArrow,
     FatArrow,
     Question,
     Length,
     Range,
+    DoubleEquals,
+    NotEquals,
+    Greater,
+    Less,
+    GreaterEquals,
+    LessEquals,
 }
 
 impl Operator {
@@ -319,16 +387,24 @@ impl Operator {
             Operator::Minus => OperatorChars::Single('-'),
             Operator::Times => OperatorChars::Single('*'),
             Operator::Divide => OperatorChars::Single('/'),
+            Operator::Modulo => OperatorChars::Single('%'),
             Operator::Concat => OperatorChars::Double('+', '+'),
             Operator::Repeat => OperatorChars::Double('*', '*'),
             Operator::And => OperatorChars::Single('&'),
             Operator::Or => OperatorChars::Single('|'),
             Operator::Not => OperatorChars::Single('!'),
+            Operator::Backslash => OperatorChars::Single('\\'),
             Operator::ThinArrow => OperatorChars::Double('-', '>'),
             Operator::FatArrow => OperatorChars::Double('=', '>'),
             Operator::Question => OperatorChars::Single('?'),
             Operator::Length => OperatorChars::Single('#'),
             Operator::Range => OperatorChars::Double('.', '.'),
+            Operator::DoubleEquals => OperatorChars::Double('=', '='),
+            Operator::NotEquals => OperatorChars::Double('!', '='),
+            Operator::Greater => OperatorChars::Single('>'),
+            Operator::Less => OperatorChars::Single('<'),
+            Operator::GreaterEquals => OperatorChars::Double('>', '='),
+            Operator::LessEquals => OperatorChars::Double('<', '='),
         }
     }
 }
@@ -375,4 +451,12 @@ impl Display for Token {
             Token::Operator(operator) => write!(f, "{}", operator.chars()),
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct LocatedToken {
+    pub token: Token,
+    pub line: usize,
+    pub col_start: usize,
+    pub col_end: usize,
 }
