@@ -7,6 +7,7 @@ pub mod ast_expr;
 pub mod ast_ident;
 pub mod ast_list;
 pub mod ast_member;
+pub mod ast_stmt;
 
 pub struct Parser<'a> {
     tokens: &'a [LocatedToken],
@@ -24,16 +25,14 @@ impl<'a> Parser<'a> {
 
     fn eat(&mut self) -> Result<(), ParseError> {
         println!("eat {} -> {}", self.idx, self.idx + 1);
-        if self.idx < self.tokens.len() {
-            self.idx += 1;
-            Ok(())
-        } else {
-            Err(ParseError::OutOfTokens)
-        }
+        println!("{:?}", self.cur());
+        self.idx += 1;
+        Ok(())
     }
 
     fn cur(&self) -> Option<&'a Token> {
         println!("get: {}", self.idx);
+        println!("GET {:?}", self.tokens.get(self.idx));
         self.tokens
             .get(self.idx)
             .map(|located_token| &located_token.token)
@@ -46,16 +45,15 @@ impl<'a> Parser<'a> {
 
     fn peek(&self) -> Option<&'a Token> {
         println!("peek: {}", self.idx);
+        println!("PEEK {:?}", self.tokens.get(self.idx));
         self.tokens
             .get(self.idx + 1)
             .map(|located_token| &located_token.token)
     }
 
-    fn next(&mut self) -> Result<&'a LocatedToken, ParseError> {
+    fn next(&mut self) -> Result<Option<&'a LocatedToken>, ParseError> {
         println!("next: {}", self.idx);
-        let Some(res) = self.tokens.get(self.idx) else {
-            return Err(ParseError::OutOfTokens);
-        };
+        let res = self.tokens.get(self.idx);
         self.eat()?;
         Ok(res)
     }
@@ -63,7 +61,6 @@ impl<'a> Parser<'a> {
 
 #[derive(Clone, Debug)]
 pub enum ParseError {
-    OutOfTokens,
     UnexpectedToken(&'static str, Option<LocatedToken>),
     ExpectedToken(&'static str, Token, Option<LocatedToken>),
     ExpectedTokens(&'static str, Vec<Token>, Option<LocatedToken>),

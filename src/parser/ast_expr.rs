@@ -134,7 +134,7 @@ impl ASTExpr {
                     Operator::Times,
                 ],
             ),
-            // fields, function calls, indexes (`.`, `()`, `[]`)
+            // fields and indexes (`.`, `[]`)
             9 => {
                 let mut expr = ASTExpr::parse_prec(parser, prec + 1)?;
                 loop {
@@ -147,19 +147,6 @@ impl ASTExpr {
                                 rhs: Box::new(rhs),
                                 op: Operator::Dot,
                             });
-                            continue;
-                        }
-                        Some(Token::Open(Grouping::Paren)) => {
-                            parser.eat()?;
-                            let args = ASTList::parse(parser)?;
-                            expr = ASTExpr::Call(Box::new(expr), args);
-                            if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
-                                return Err(ParseError::ExpectedToken(
-                                    "while parsing function call",
-                                    Token::Close(Grouping::Paren),
-                                    parser.cur_loc().cloned(),
-                                ));
-                            }
                             continue;
                         }
                         Some(Token::Open(Grouping::Bracket)) => {
@@ -181,22 +168,37 @@ impl ASTExpr {
                 Ok(expr)
             }
             // explicit grouping (`()`)
-            10 => {
-                if matches!(parser.cur(), Some(Token::Open(Grouping::Paren))) {
+            10 => match parser.cur() {
+                Some(Token::Open(Grouping::Paren)) => {
+                    println!("PARSING EXPLICIT PARENS...");
                     parser.eat()?;
                     let list = ASTList::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
                         return Err(ParseError::ExpectedToken(
-                            "while parsing explicit grouping",
+                            "while parsing struct",
                             Token::Close(Grouping::Bracket),
                             parser.cur_loc().cloned(),
                         ));
                     }
                     parser.eat()?;
-                    return Ok(ASTExpr::Struct(list));
+                    Ok(ASTExpr::Struct(list))
                 }
-                Self::parse_prec(parser, prec + 1)
-            }
+                Some(Token::Open(Grouping::Curly)) => {
+                    println!("PARSING EXPLICIT CURLYS...");
+                    parser.eat()?;
+                    let list = ASTList::parse(parser)?;
+                    if !matches!(parser.cur(), Some(Token::Close(Grouping::Curly))) {
+                        return Err(ParseError::ExpectedToken(
+                            "while parsing block",
+                            Token::Close(Grouping::Bracket),
+                            parser.cur_loc().cloned(),
+                        ));
+                    }
+                    parser.eat()?;
+                    Ok(ASTExpr::Block(list))
+                }
+                _ => Self::parse_prec(parser, prec + 1),
+            },
             // identifiers
             11 => Ok(ASTExpr::Ident(ASTIdent::parse(parser)?)),
             prec => Err(ParseError::IllegalPrecedenceLevel(

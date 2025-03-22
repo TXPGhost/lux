@@ -24,9 +24,9 @@ pub enum ASTExpr {
     Ident(ASTIdent),
     Binop(ASTBinop),
     Lambda(Box<ASTExpr>, Box<ASTExpr>),
-    Call(Box<ASTExpr>, ASTList<ASTMember>),
     Index(Box<ASTExpr>, Box<ASTExpr>),
     Struct(ASTList<ASTMember>),
+    Block(ASTList<ASTStmt>),
 }
 
 #[derive(Clone, Debug)]
@@ -47,4 +47,11 @@ pub struct ASTBinop {
 pub struct ASTUnop {
     pub expr: Box<ASTExpr>,
     pub op: Operator,
+}
+
+#[derive(Clone, Debug)]
+pub enum ASTStmt {
+    Expr(ASTExpr),
+    Binding(ASTIdent, Option<ASTExpr>, ASTExpr),
+    Block(ASTList<ASTStmt>),
 }
