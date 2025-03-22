@@ -26,34 +26,26 @@ impl<'a> Parser<'a> {
     }
 
     fn eat(&mut self) {
-        println!("eat {} -> {}", self.idx, self.idx + 1);
-        println!("{:?}", self.cur());
         self.idx += 1;
     }
 
     fn cur(&self) -> Option<&'a Token> {
-        println!("get: {}", self.idx);
-        println!("GET {:?}", self.tokens.get(self.idx));
         self.tokens
             .get(self.idx)
             .map(|located_token| &located_token.token)
     }
 
     fn cur_loc(&self) -> Option<&'a LocatedToken> {
-        println!("get: {}", self.idx);
         self.tokens.get(self.idx)
     }
 
     fn peek(&self) -> Option<&'a Token> {
-        println!("peek: {}", self.idx);
-        println!("PEEK {:?}", self.tokens.get(self.idx));
         self.tokens
             .get(self.idx + 1)
             .map(|located_token| &located_token.token)
     }
 
     fn next(&mut self) -> Result<Option<&'a LocatedToken>, ParseError> {
-        println!("next: {}", self.idx);
         let res = self.tokens.get(self.idx);
         self.eat();
         Ok(res)
@@ -67,6 +59,7 @@ pub enum ParseError {
     ExpectedTokens(&'static str, Vec<Token>, Option<LocatedToken>),
     ExpectedIdent(&'static str, Option<LocatedToken>),
     NumberParseError(ParseIntError),
+    IllegalListType(&'static str, usize),
 }
 
 pub trait Parse: Sized {

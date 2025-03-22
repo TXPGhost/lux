@@ -39,8 +39,11 @@ pub enum ASTExpr {
     Lambda(Box<ASTExpr>, Box<ASTExpr>),
     Index(Box<ASTExpr>, Box<ASTExpr>),
     Struct(ASTList<ASTMember>),
+    Enum(ASTList<ASTMember>),
     Func(Box<ASTExpr>, ASTList<ASTMember>),
     Block(ASTList<ASTStmt>),
+    List(ASTList<ASTExpr>),
+    ListType(Option<Box<ASTExpr>>, Box<ASTExpr>),
 }
 
 #[derive(Clone, Debug)]

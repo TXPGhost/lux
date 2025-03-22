@@ -182,10 +182,9 @@ impl ASTExpr {
                 }
                 Ok(expr)
             }
-            // explicit grouping (`()`)
+            // explicit grouping (`()`, `[]`, `<>`)
             10 => match parser.cur() {
                 Some(Token::Open(Grouping::Paren)) => {
-                    println!("PARSING EXPLICIT PARENS...");
                     parser.eat();
                     let list = ASTList::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
@@ -198,8 +197,20 @@ impl ASTExpr {
                     parser.eat();
                     Ok(ASTExpr::Struct(list))
                 }
+                Some(Token::Open(Grouping::Angle)) => {
+                    parser.eat();
+                    let list = ASTList::parse(parser)?;
+                    if !matches!(parser.cur(), Some(Token::Close(Grouping::Angle))) {
+                        return Err(ParseError::ExpectedToken(
+                            "while parsing enum",
+                            Token::Close(Grouping::Bracket),
+                            parser.cur_loc().cloned(),
+                        ));
+                    }
+                    parser.eat();
+                    Ok(ASTExpr::Enum(list))
+                }
                 Some(Token::Open(Grouping::Curly)) => {
-                    println!("PARSING EXPLICIT CURLYS...");
                     parser.eat();
                     let list = ASTList::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Curly))) {
@@ -211,6 +222,34 @@ impl ASTExpr {
                     }
                     parser.eat();
                     Ok(ASTExpr::Block(list))
+                }
+                Some(Token::Open(Grouping::Bracket)) => {
+                    parser.eat();
+                    let mut list = ASTList::parse(parser)?;
+                    if !matches!(parser.cur(), Some(Token::Close(Grouping::Bracket))) {
+                        return Err(ParseError::ExpectedToken(
+                            "while parsing list",
+                            Token::Close(Grouping::Bracket),
+                            parser.cur_loc().cloned(),
+                        ));
+                    }
+                    parser.eat();
+                    if matches!(
+                        parser.cur(),
+                        Some(Token::TIdent(_) | Token::VIdent(_) | Token::Open(Grouping::Paren))
+                    ) {
+                        let ty = ASTExpr::parse(parser)?;
+                        match list.0.len() {
+                            0 => Ok(ASTExpr::ListType(None, Box::new(ty))),
+                            1 => Ok(ASTExpr::ListType(
+                                Some(Box::new(list.0.pop().unwrap())),
+                                Box::new(ty),
+                            )),
+                            n => Err(ParseError::IllegalListType("multiple list sizes", n)),
+                        }
+                    } else {
+                        Ok(ASTExpr::List(list))
+                    }
                 }
                 _ => Self::parse_prec(parser, prec + 1),
             },

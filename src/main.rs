@@ -8,7 +8,7 @@ pub mod lexer;
 pub mod parser;
 
 fn main() {
-    let mut file = File::open("test.lx").unwrap();
+    let mut file = File::open("test2.lx").unwrap();
     let lexer = Lexer::new_from_file(&mut file).unwrap();
     let tokens = lexer.tokenize().unwrap();
     println!(

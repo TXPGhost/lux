@@ -1,6 +1,6 @@
 use crate::{
     ast::*,
-    lexer::{Grouping, Token},
+    lexer::{Grouping, Operator, Token},
     parser::ParseError,
 };
 
@@ -8,8 +8,9 @@ use super::Parse;
 
 impl Parse for ASTMember {
     fn parse(parser: &mut super::Parser<'_>) -> Result<Self, super::ParseError> {
-        println!("parsing ASTMember");
-        if matches!(parser.cur(), Some(Token::TIdent(_) | Token::VIdent(_))) {
+        if matches!(parser.cur(), Some(Token::TIdent(_) | Token::VIdent(_)))
+            && !matches!(parser.peek(), Some(Token::Operator(Operator::Dot)))
+        {
             let ident = ASTIdent::parse(parser)?;
             let mut args = None;
             if matches!(parser.cur(), Some(Token::Open(Grouping::Paren))) {
@@ -25,11 +26,8 @@ impl Parse for ASTMember {
                 parser.eat();
             }
             if matches!(parser.cur(), Some(Token::Colon)) {
-                println!("parsing identified member");
                 parser.eat();
-                println!("...begin expr (cur = {:?})", parser.cur());
                 let expr = ASTExpr::parse(parser)?;
-                println!("...end expr");
                 match args {
                     Some(args) => Ok(ASTMember::NamedFunc(ident, args, expr)),
                     None => Ok(ASTMember::Named(ident, expr)),
