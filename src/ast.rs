@@ -62,6 +62,7 @@ pub enum Expr {
     Number(u64),
     Binop(Node<Binop>),
     Index(Box<Node<Expr>>, Box<Node<Expr>>),
+    Field(Box<Node<Expr>>, Node<Field>),
     Struct(Node<List<Node<Member>>>),
     Enum(Node<List<Node<Member>>>),
     Call(Box<Node<Expr>>, Node<List<Node<Member>>>),
@@ -95,4 +96,10 @@ pub enum Stmt {
     Expr(Node<Expr>),
     Binding(Node<Ident>, Option<Node<Expr>>, Node<Expr>),
     Block(List<Node<Stmt>>),
+}
+
+#[derive(Clone, Debug)]
+pub enum Field {
+    Ident(Ident),
+    Number(u64),
 }

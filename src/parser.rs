@@ -5,11 +5,12 @@ use crate::{
     lexer::{LocatedToken, Token},
 };
 
-pub mod ast_expr;
-pub mod ast_ident;
-pub mod ast_list;
-pub mod ast_member;
-pub mod ast_stmt;
+pub mod parse_expr;
+pub mod parse_field;
+pub mod parse_ident;
+pub mod parse_list;
+pub mod parse_member;
+pub mod parse_stmt;
 
 pub struct Parser<'a> {
     tokens: &'a [LocatedToken],

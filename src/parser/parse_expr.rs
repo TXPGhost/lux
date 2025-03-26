@@ -170,17 +170,10 @@ impl Node<Expr> {
                     match parser.cur() {
                         Some(Token::Operator(Operator::Dot)) => {
                             parser.eat();
-                            let rhs = Node::<Expr>::parse_prec(parser, prec)?;
-                            let meta = Loc::combine(expr.loc, rhs.loc);
+                            let field = Node::<Field>::parse(parser)?;
+                            let meta = Loc::combine(expr.loc, field.loc);
                             expr = Node {
-                                value: Expr::Binop(Node {
-                                    value: Binop {
-                                        lhs: Box::new(expr),
-                                        rhs: Box::new(rhs),
-                                        op: Operator::Dot,
-                                    },
-                                    loc: meta,
-                                }),
+                                value: Expr::Field(Box::new(expr), field),
                                 loc: meta,
                             };
                             continue;

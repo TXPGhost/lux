@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use crate::{ast::*, lexer::Operator};
 
@@ -44,9 +44,30 @@ pub trait Interpret {
     fn interpret(self, context: &mut Context) -> Result<Self::Output, InterpretError>;
 }
 
+impl<T: Interpret + Clone + Debug> Interpret for Node<List<T>>
+where
+    T::Output: Clone + Debug,
+{
+    type Output = Node<List<T::Output>>;
+    fn interpret(self, context: &mut Context) -> Result<Self::Output, InterpretError> {
+        let loc = self.loc;
+        let mut new_elements = Vec::with_capacity(self.value.elements.len());
+        for element in self.value.elements {
+            new_elements.push(element.interpret(context)?)
+        }
+        Ok(Node {
+            value: List {
+                elements: new_elements,
+            },
+            loc,
+        })
+    }
+}
+
 impl Interpret for Node<Expr> {
     type Output = Node<Expr>;
     fn interpret(self, context: &mut Context) -> Result<Self::Output, InterpretError> {
+        let loc = self.loc;
         match self.value {
             Expr::Ident(node) => match context.lookup(&node.value) {
                 Some(expr) => Ok(expr.clone()),
@@ -58,7 +79,6 @@ impl Interpret for Node<Expr> {
                 let rhs = binop.value.rhs.interpret(context)?;
 
                 if let (Expr::Number(x), Expr::Number(y)) = (&lhs.value, &rhs.value) {
-                    let loc = Loc::combine(lhs.loc, rhs.loc);
                     return match binop.value.op {
                         Operator::Plus => Ok(Node {
                             value: Expr::Number(x + y),
@@ -94,58 +114,63 @@ impl Interpret for Node<Expr> {
                 }
 
                 match binop.value.op {
-                    Operator::Dot => {
-                        let Expr::Struct(members) = lhs.value else {
-                            return Err(InterpretError::IllegalFieldOperation(format!(
-                                "cannot get field of a non-struct expression {:?}",
-                                lhs
-                            )));
-                        };
-                        match rhs.value {
-                            Expr::Ident(ident) => {
-                                for member in members.value.elements {
-                                    match member.value {
-                                        Member::Expr(_) => continue,
-                                        Member::Named(member_ident, expr) => {
-                                            if ident.value == member_ident.value {
-                                                return Ok(expr);
-                                            }
-                                        }
-                                        Member::NamedFunc(member_ident, args, expr) => {
-                                            if ident.value == member_ident.value {
-                                                let loc = Loc::combine(args.loc, expr.lco);
-                                                return Ok(Node {
-                                                    value: Expr::Func(args, Box::new(expr)),
-                                                    loc,
-                                                });
-                                            }
-                                        }
-                                    }
-                                }
-                                todo!()
-                            }
-                            Expr::Number(number) => {
-                                if number >= 
-                            }
-                            _ => Err(InterpretError::IllegalFieldOperation(format!(
-                                "struct field must be an identifier or a number {:?}",
-                                rhs
-                            ))),
-                        }
-                    }
                     Operator::ThinArrow => todo!(),
                     Operator::FatArrow => todo!(),
                     _ => todo!(),
                 }
             }
-            Expr::Func(args, body) => todo!()
+            Expr::Func(args, body) => todo!(),
             Expr::Index(node, node1) => todo!(),
-            Expr::Struct(node) => todo!(),
-            Expr::Enum(node) => todo!(),
+            Expr::Field(expr, field) => todo!(),
+            Expr::Struct(members) => {
+                let loc = members.loc;
+                Ok(Node {
+                    value: Expr::Struct(members.interpret(context)?),
+                    loc,
+                })
+            }
+            Expr::Enum(variants) => {
+                let loc = variants.loc;
+                Ok(Node {
+                    value: Expr::Enum(variants.interpret(context)?),
+                    loc,
+                })
+            }
             Expr::Call(node, node1) => todo!(),
             Expr::Block(node) => todo!(),
             Expr::List(node) => todo!(),
             Expr::ListType(node, node1) => todo!(),
+        }
+    }
+}
+
+impl Interpret for Node<Member> {
+    type Output = Node<Member>;
+
+    fn interpret(self, context: &mut Context) -> Result<Self::Output, InterpretError> {
+        let loc = self.loc;
+        match self.value {
+            Member::Expr(expr) => Ok(Node {
+                value: Member::Expr(expr.interpret(context)?),
+                loc,
+            }),
+            Member::Named(ident, expr) => Ok(Node {
+                value: Member::Named(ident, expr.interpret(context)?),
+                loc,
+            }),
+            Member::NamedFunc(ident, args, expr) => Ok(Node {
+                value: Member::Named(
+                    ident,
+                    Node {
+                        value: Expr::Func(
+                            args.interpret(context)?,
+                            Box::new(expr.interpret(context)?),
+                        ),
+                        loc,
+                    },
+                ),
+                loc,
+            }),
         }
     }
 }
