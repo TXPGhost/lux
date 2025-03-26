@@ -6,30 +6,38 @@ use crate::{
 
 use super::Parse;
 
-impl Parse for ASTExpr {
+impl Parse for Node<Expr> {
     fn parse(parser: &mut super::Parser<'_>) -> Result<Self, super::ParseError> {
         Self::parse_prec(parser, 0)
     }
 }
 
-impl ASTExpr {
+impl Node<Expr> {
     fn parse_binop_next_prec(
         parser: &mut super::Parser<'_>,
         prec: usize,
         next_prec: usize,
         operators: &[Operator],
     ) -> Result<Self, super::ParseError> {
-        let expr = ASTExpr::parse_prec(parser, prec + 1)?;
+        let expr = Node::<Expr>::parse_prec(parser, prec + 1)?;
         if let Some(Token::Operator(operator)) = parser.cur() {
             for op in operators {
                 if op == operator {
                     parser.eat();
-                    let rhs = ASTExpr::parse_prec(parser, next_prec)?;
-                    return Ok(ASTExpr::Binop(ASTBinop {
-                        lhs: Box::new(expr),
-                        rhs: Box::new(rhs),
-                        op: *op,
-                    }));
+                    let rhs = Node::<Expr>::parse_prec(parser, next_prec)?;
+                    let meta = Loc::combine(expr.loc, rhs.loc);
+                    let expr = Expr::Binop(Node {
+                        value: Binop {
+                            lhs: Box::new(expr),
+                            rhs: Box::new(rhs),
+                            op: *op,
+                        },
+                        loc: meta,
+                    });
+                    return Ok(Node {
+                        value: expr,
+                        loc: meta,
+                    });
                 }
             }
         }
@@ -57,18 +65,25 @@ impl ASTExpr {
         prec: usize,
         operators: &[Operator],
     ) -> Result<Self, super::ParseError> {
-        let mut expr = ASTExpr::parse_prec(parser, prec + 1)?;
+        let mut expr = Node::<Expr>::parse_prec(parser, prec + 1)?;
         while let Some(Token::Operator(operator)) = parser.cur() {
             let mut proceed = false;
             for op in operators {
                 if op == operator {
                     parser.eat();
-                    let rhs = ASTExpr::parse_prec(parser, prec)?;
-                    expr = ASTExpr::Binop(ASTBinop {
-                        lhs: Box::new(expr),
-                        rhs: Box::new(rhs),
-                        op: *op,
-                    });
+                    let rhs = Node::<Expr>::parse_prec(parser, prec)?;
+                    let meta = Loc::combine(expr.loc, rhs.loc);
+                    expr = Node {
+                        value: Expr::Binop(Node {
+                            value: Binop {
+                                lhs: Box::new(expr),
+                                rhs: Box::new(rhs),
+                                op: *op,
+                            },
+                            loc: meta,
+                        }),
+                        loc: meta,
+                    };
                     proceed = true;
                     break;
                 }
@@ -83,7 +98,21 @@ impl ASTExpr {
     fn parse_prec(parser: &mut super::Parser<'_>, prec: usize) -> Result<Self, super::ParseError> {
         match prec {
             // lambda operator (`=>`)
-            0 => Self::parse_binop_right_assoc(parser, prec, &[Operator::FatArrow]),
+            0 => {
+                let lambda = Self::parse_binop_right_assoc(parser, prec, &[Operator::FatArrow])?;
+                let loc = lambda.loc;
+                if let Expr::Binop(binop) = &lambda.value {
+                    if let Operator::FatArrow = &binop.value.op {
+                        if let Expr::Struct(members) = &binop.value.lhs.value {
+                            return Ok(Node {
+                                value: Expr::Func(members.clone(), binop.value.rhs.clone()),
+                                loc,
+                            });
+                        }
+                    }
+                }
+                Ok(lambda)
+            }
             // comparison operators (`==`, etc.)
             1 => Self::parse_binop_no_assoc(
                 parser,
@@ -136,23 +165,34 @@ impl ASTExpr {
             ),
             // fields indexes, and calls (`.`, `[]`, `()`)
             9 => {
-                let mut expr = ASTExpr::parse_prec(parser, prec + 1)?;
+                let mut expr = Node::<Expr>::parse_prec(parser, prec + 1)?;
                 loop {
                     match parser.cur() {
                         Some(Token::Operator(Operator::Dot)) => {
                             parser.eat();
-                            let rhs = ASTExpr::parse_prec(parser, prec)?;
-                            expr = ASTExpr::Binop(ASTBinop {
-                                lhs: Box::new(expr),
-                                rhs: Box::new(rhs),
-                                op: Operator::Dot,
-                            });
+                            let rhs = Node::<Expr>::parse_prec(parser, prec)?;
+                            let meta = Loc::combine(expr.loc, rhs.loc);
+                            expr = Node {
+                                value: Expr::Binop(Node {
+                                    value: Binop {
+                                        lhs: Box::new(expr),
+                                        rhs: Box::new(rhs),
+                                        op: Operator::Dot,
+                                    },
+                                    loc: meta,
+                                }),
+                                loc: meta,
+                            };
                             continue;
                         }
                         Some(Token::Open(Grouping::Paren)) => {
                             parser.eat();
-                            let args = ASTList::parse(parser)?;
-                            expr = ASTExpr::Func(Box::new(expr), args);
+                            let args = Node::<List<Node<Member>>>::parse(parser)?;
+                            let meta = Loc::combine(expr.loc, args.loc);
+                            expr = Node {
+                                value: Expr::Call(Box::new(expr), args),
+                                loc: meta,
+                            };
                             if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
                                 return Err(ParseError::ExpectedToken(
                                     "while parsing index",
@@ -165,8 +205,12 @@ impl ASTExpr {
                         }
                         Some(Token::Open(Grouping::Bracket)) => {
                             parser.eat();
-                            let index = ASTExpr::parse(parser)?;
-                            expr = ASTExpr::Index(Box::new(expr), Box::new(index));
+                            let index = Node::<Expr>::parse(parser)?;
+                            let meta = Loc::combine(expr.loc, index.loc);
+                            expr = Node {
+                                value: Expr::Index(Box::new(expr), Box::new(index)),
+                                loc: meta,
+                            };
                             if !matches!(parser.cur(), Some(Token::Close(Grouping::Bracket))) {
                                 return Err(ParseError::ExpectedToken(
                                     "while parsing index",
@@ -185,8 +229,9 @@ impl ASTExpr {
             // explicit grouping (`()`, `[]`, `<>`)
             10 => match parser.cur() {
                 Some(Token::Open(Grouping::Paren)) => {
+                    let open_meta = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    let list = ASTList::parse(parser)?;
+                    let members = Node::<List<Node<Member>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
                         return Err(ParseError::ExpectedToken(
                             "while parsing struct",
@@ -194,12 +239,19 @@ impl ASTExpr {
                             parser.cur_loc().cloned(),
                         ));
                     }
+                    let close_meta = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    Ok(ASTExpr::Struct(list))
+                    let meta =
+                        Loc::combine(members.loc, Loc::combine(Some(open_meta), Some(close_meta)));
+                    Ok(Node {
+                        value: Expr::Struct(members),
+                        loc: meta,
+                    })
                 }
                 Some(Token::Open(Grouping::Angle)) => {
+                    let open_meta = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    let list = ASTList::parse(parser)?;
+                    let variants = Node::<List<Node<Member>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Angle))) {
                         return Err(ParseError::ExpectedToken(
                             "while parsing enum",
@@ -207,12 +259,21 @@ impl ASTExpr {
                             parser.cur_loc().cloned(),
                         ));
                     }
+                    let close_meta = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    Ok(ASTExpr::Enum(list))
+                    let meta = Loc::combine(
+                        variants.loc,
+                        Loc::combine(Some(open_meta), Some(close_meta)),
+                    );
+                    Ok(Node {
+                        value: Expr::Enum(variants),
+                        loc: meta,
+                    })
                 }
                 Some(Token::Open(Grouping::Curly)) => {
                     parser.eat();
-                    let list = ASTList::parse(parser)?;
+                    let open_meta = Loc::from_token(parser.cur_loc().unwrap());
+                    let stmts = Node::<List<Node<Stmt>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Curly))) {
                         return Err(ParseError::ExpectedToken(
                             "while parsing block",
@@ -220,12 +281,19 @@ impl ASTExpr {
                             parser.cur_loc().cloned(),
                         ));
                     }
+                    let close_meta = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    Ok(ASTExpr::Block(list))
+                    let meta =
+                        Loc::combine(stmts.loc, Loc::combine(Some(open_meta), Some(close_meta)));
+                    Ok(Node {
+                        value: Expr::Block(stmts),
+                        loc: meta,
+                    })
                 }
                 Some(Token::Open(Grouping::Bracket)) => {
+                    let open_meta = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    let mut list = ASTList::parse(parser)?;
+                    let mut elements = Node::<List<Node<Expr>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Bracket))) {
                         return Err(ParseError::ExpectedToken(
                             "while parsing list",
@@ -233,22 +301,37 @@ impl ASTExpr {
                             parser.cur_loc().cloned(),
                         ));
                     }
+                    let close_meta = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
+                    let meta = Loc::combine(
+                        elements.loc,
+                        Loc::combine(Some(open_meta), Some(close_meta)),
+                    );
                     if matches!(
                         parser.cur(),
                         Some(Token::TIdent(_) | Token::VIdent(_) | Token::Open(Grouping::Paren))
                     ) {
-                        let ty = ASTExpr::parse(parser)?;
-                        match list.0.len() {
-                            0 => Ok(ASTExpr::ListType(None, Box::new(ty))),
-                            1 => Ok(ASTExpr::ListType(
-                                Some(Box::new(list.0.pop().unwrap())),
-                                Box::new(ty),
-                            )),
+                        let ty = Node::<Expr>::parse(parser)?;
+                        let meta = Loc::combine(meta, ty.loc);
+                        match elements.value.elements.len() {
+                            0 => Ok(Node {
+                                value: Expr::ListType(None, Box::new(ty)),
+                                loc: meta,
+                            }),
+                            1 => Ok(Node {
+                                value: Expr::ListType(
+                                    Some(Box::new(elements.value.elements.pop().unwrap())),
+                                    Box::new(ty),
+                                ),
+                                loc: meta,
+                            }),
                             n => Err(ParseError::IllegalListType("multiple list sizes", n)),
                         }
                     } else {
-                        Ok(ASTExpr::List(list))
+                        Ok(Node {
+                            value: Expr::List(elements),
+                            loc: meta,
+                        })
                     }
                 }
                 _ => Self::parse_prec(parser, prec + 1),
@@ -256,13 +339,20 @@ impl ASTExpr {
             // identifiers and literals
             11 => match parser.cur() {
                 Some(Token::TIdent(_) | Token::VIdent(_)) => {
-                    Ok(ASTExpr::Ident(ASTIdent::parse(parser)?))
+                    let ident = Node::<Ident>::parse(parser)?;
+                    let meta = ident.loc;
+                    Ok(Node {
+                        value: Expr::Ident(ident),
+                        loc: meta,
+                    })
                 }
                 Some(Token::Number(n)) => {
+                    let meta = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    Ok(ASTExpr::Number(
-                        n.parse().map_err(ParseError::NumberParseError)?,
-                    ))
+                    Ok(Node {
+                        value: Expr::Number(n.parse().map_err(ParseError::NumberParseError)?),
+                        loc: Some(meta),
+                    })
                 }
                 _ => Err(ParseError::UnexpectedToken(
                     "while parsing expr",

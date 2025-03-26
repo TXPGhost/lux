@@ -1,73 +1,98 @@
-use std::rc::Rc;
+use std::{fmt::Debug, rc::Rc};
 
-use crate::lexer::Operator;
+use crate::lexer::{LocatedToken, Operator};
+
+pub mod desugar;
+pub use desugar::*;
 
 #[derive(Clone, Debug)]
-pub struct ASTMetadata {
+pub struct Node<T: Clone + Debug> {
+    pub value: T,
+    pub loc: Option<Loc>,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Loc {
     pub line_min: usize,
     pub line_max: usize,
     pub col_min: usize,
     pub col_max: usize,
 }
 
-impl ASTMetadata {
-    pub fn combine(self, rhs: Self) -> Self {
+impl Loc {
+    pub fn combine(lhs: Option<Self>, rhs: Option<Self>) -> Option<Self> {
+        match (lhs, rhs) {
+            (Some(lhs), Some(rhs)) => Some(Self {
+                line_min: lhs.line_min.min(rhs.line_min),
+                line_max: lhs.line_max.max(rhs.line_max),
+                col_min: lhs.col_min.min(rhs.col_min),
+                col_max: lhs.col_max.max(rhs.col_max),
+            }),
+            (Some(lhs), None) => Some(lhs),
+            (None, Some(rhs)) => Some(rhs),
+            (None, None) => None,
+        }
+    }
+
+    pub fn from_token(token: &LocatedToken) -> Self {
         Self {
-            line_min: self.line_min.min(rhs.line_min),
-            line_max: self.line_max.max(rhs.line_max),
-            col_min: self.col_min.min(rhs.col_min),
-            col_max: self.col_max.max(rhs.col_max),
+            line_min: token.line,
+            line_max: token.line,
+            col_min: token.col_start,
+            col_max: token.col_end,
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct ASTList<T>(pub Vec<T>);
-
-#[derive(Clone, Debug)]
-pub enum ASTMember {
-    Expr(ASTExpr),
-    Named(ASTIdent, ASTExpr),
-    NamedFunc(ASTIdent, ASTList<ASTMember>, ASTExpr),
+pub struct List<T> {
+    pub elements: Vec<T>,
 }
 
 #[derive(Clone, Debug)]
-pub enum ASTExpr {
-    Ident(ASTIdent),
+pub enum Member {
+    Expr(Node<Expr>),
+    Named(Node<Ident>, Node<Expr>),
+    NamedFunc(Node<Ident>, Node<List<Node<Member>>>, Node<Expr>),
+}
+
+#[derive(Clone, Debug)]
+pub enum Expr {
+    Ident(Node<Ident>),
     Number(u64),
-    Binop(ASTBinop),
-    Lambda(Box<ASTExpr>, Box<ASTExpr>),
-    Index(Box<ASTExpr>, Box<ASTExpr>),
-    Struct(ASTList<ASTMember>),
-    Enum(ASTList<ASTMember>),
-    Func(Box<ASTExpr>, ASTList<ASTMember>),
-    Block(ASTList<ASTStmt>),
-    List(ASTList<ASTExpr>),
-    ListType(Option<Box<ASTExpr>>, Box<ASTExpr>),
+    Binop(Node<Binop>),
+    Index(Box<Node<Expr>>, Box<Node<Expr>>),
+    Struct(Node<List<Node<Member>>>),
+    Enum(Node<List<Node<Member>>>),
+    Call(Box<Node<Expr>>, Node<List<Node<Member>>>),
+    Func(Node<List<Node<Member>>>, Box<Node<Expr>>),
+    Block(Node<List<Node<Stmt>>>),
+    List(Node<List<Node<Expr>>>),
+    ListType(Option<Box<Node<Expr>>>, Box<Node<Expr>>),
 }
 
-#[derive(Clone, Debug)]
-pub enum ASTIdent {
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Ident {
     TIdent(Rc<str>),
     VIdent(Rc<str>),
 }
 
 #[derive(Clone, Debug)]
-pub struct ASTBinop {
-    pub lhs: Box<ASTExpr>,
-    pub rhs: Box<ASTExpr>,
+pub struct Binop {
+    pub lhs: Box<Node<Expr>>,
+    pub rhs: Box<Node<Expr>>,
     pub op: Operator,
 }
 
 #[derive(Clone, Debug)]
-pub struct ASTUnop {
-    pub expr: Box<ASTExpr>,
+pub struct Unop {
+    pub expr: Box<Node<Expr>>,
     pub op: Operator,
 }
 
 #[derive(Clone, Debug)]
-pub enum ASTStmt {
-    Expr(ASTExpr),
-    Binding(ASTIdent, Option<ASTExpr>, ASTExpr),
-    Block(ASTList<ASTStmt>),
+pub enum Stmt {
+    Expr(Node<Expr>),
+    Binding(Node<Ident>, Option<Node<Expr>>, Node<Expr>),
+    Block(List<Node<Stmt>>),
 }

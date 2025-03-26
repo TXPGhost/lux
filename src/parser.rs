@@ -21,8 +21,8 @@ impl<'a> Parser<'a> {
         Self { tokens, idx: 0 }
     }
 
-    pub fn parse(&mut self) -> Result<ASTList<ASTMember>, ParseError> {
-        ASTList::parse(self)
+    pub fn parse(&mut self) -> Result<Node<List<Node<Member>>>, ParseError> {
+        Node::<List<Node<Member>>>::parse(self)
     }
 
     fn eat(&mut self) {

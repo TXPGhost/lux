@@ -4,6 +4,7 @@ use lexer::Lexer;
 use parser::Parser;
 
 pub mod ast;
+pub mod interpreter;
 pub mod lexer;
 pub mod parser;
 
