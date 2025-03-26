@@ -70,12 +70,13 @@ pub enum Expr {
     Block(Node<List<Node<Stmt>>>),
     List(Node<List<Node<Expr>>>),
     ListType(Option<Box<Node<Expr>>>, Box<Node<Expr>>),
+    Primitive(Primitive),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Ident {
-    TIdent(Rc<str>),
     VIdent(Rc<str>),
+    TIdent(Rc<str>),
 }
 
 #[derive(Clone, Debug)]
@@ -102,4 +103,9 @@ pub enum Stmt {
 pub enum Field {
     Ident(Ident),
     Number(u64),
+}
+
+#[derive(Clone, Debug)]
+pub enum Primitive {
+    U64,
 }

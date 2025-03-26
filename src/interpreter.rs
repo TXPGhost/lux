@@ -1,176 +1,93 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::{ast::*, lexer::Operator};
+use crate::ast::*;
 
-pub struct Context {
+pub mod interpret_expr;
+pub mod interpret_list;
+pub mod interpret_member;
+
+pub struct Context<'a> {
     definitions: Vec<Node<Expr>>,
     associations: HashMap<Ident, usize>,
+    prev_frame: Option<&'a Context<'a>>,
+    strategy: InterpretStrategy,
 }
 
-impl Context {
-    pub fn new() -> Self {
-        Self {
-            definitions: Vec::new(),
-            associations: HashMap::new(),
-        }
-    }
-
-    pub fn lookup(&self, ident: &Ident) -> Option<&Node<Expr>> {
+impl<'a> Context<'a> {
+    pub fn local_lookup(&self, ident: &Ident) -> Option<&Node<Expr>> {
         let index = self.associations.get(ident)?;
         let expr = self.definitions.get(*index)?;
         Some(expr)
     }
 
+    pub fn lookup(&self, ident: &Ident) -> Option<&Node<Expr>> {
+        match self.local_lookup(ident) {
+            Some(expr) => Some(expr),
+            None => match &self.prev_frame {
+                Some(frame) => frame.lookup(ident),
+                None => None,
+            },
+        }
+    }
+
     pub fn add(&mut self, ident: Ident, expr: Node<Expr>) {
+        println!("adding to context {:?} -> {:?}", ident, expr.value);
         self.associations.insert(ident, self.definitions.len());
         self.definitions.push(expr);
     }
-}
 
-impl Default for Context {
-    fn default() -> Self {
-        Self::new()
+    pub fn frame(&'a self, strategy: InterpretStrategy) -> Self {
+        Self {
+            definitions: Vec::new(),
+            associations: HashMap::new(),
+            prev_frame: Some(self),
+            strategy,
+        }
+    }
+
+    pub fn strategy(&self) -> InterpretStrategy {
+        self.strategy
     }
 }
 
+impl Default for Context<'_> {
+    fn default() -> Self {
+        let mut context = Self {
+            definitions: Vec::new(),
+            associations: HashMap::new(),
+            prev_frame: None,
+            strategy: InterpretStrategy::Eval,
+        };
+        context.add(
+            Ident::TIdent("U64".into()),
+            Node {
+                value: Expr::Primitive(Primitive::U64),
+                loc: None,
+            },
+        );
+        context
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InterpretStrategy {
+    /// Value-level evaluation
+    Eval,
+
+    /// Type-level simplification
+    Simplify,
+}
+
+#[derive(Debug)]
 pub enum InterpretError {
-    UndefinedSymbol(Ident),
-    TypeMismatch(String),
-    IllegalFieldOperation(String),
+    UndefinedSymbol(Node<Ident>),
+    IllegalBinop(&'static str, Node<Binop>),
+    ArgumentMismatch(&'static str, usize, usize),
+    IllegalFieldOperation(&'static str),
+    IllegalCallOperation(&'static str, Node<Expr>),
 }
 
 pub trait Interpret {
     type Output;
-    fn interpret(self, context: &mut Context) -> Result<Self::Output, InterpretError>;
-}
-
-impl<T: Interpret + Clone + Debug> Interpret for Node<List<T>>
-where
-    T::Output: Clone + Debug,
-{
-    type Output = Node<List<T::Output>>;
-    fn interpret(self, context: &mut Context) -> Result<Self::Output, InterpretError> {
-        let loc = self.loc;
-        let mut new_elements = Vec::with_capacity(self.value.elements.len());
-        for element in self.value.elements {
-            new_elements.push(element.interpret(context)?)
-        }
-        Ok(Node {
-            value: List {
-                elements: new_elements,
-            },
-            loc,
-        })
-    }
-}
-
-impl Interpret for Node<Expr> {
-    type Output = Node<Expr>;
-    fn interpret(self, context: &mut Context) -> Result<Self::Output, InterpretError> {
-        let loc = self.loc;
-        match self.value {
-            Expr::Ident(node) => match context.lookup(&node.value) {
-                Some(expr) => Ok(expr.clone()),
-                None => Err(InterpretError::UndefinedSymbol(node.value)),
-            },
-            Expr::Number(_) => Ok(self),
-            Expr::Binop(binop) => {
-                let lhs = binop.value.lhs.interpret(context)?;
-                let rhs = binop.value.rhs.interpret(context)?;
-
-                if let (Expr::Number(x), Expr::Number(y)) = (&lhs.value, &rhs.value) {
-                    return match binop.value.op {
-                        Operator::Plus => Ok(Node {
-                            value: Expr::Number(x + y),
-                            loc,
-                        }),
-                        Operator::Minus => Ok(Node {
-                            value: Expr::Number(x - y),
-                            loc,
-                        }),
-                        Operator::Times => Ok(Node {
-                            value: Expr::Number(x * y),
-                            loc,
-                        }),
-                        Operator::Divide => Ok(Node {
-                            value: Expr::Number(x / y),
-                            loc,
-                        }),
-                        Operator::Modulo => Ok(Node {
-                            value: Expr::Number(x % y),
-                            loc,
-                        }),
-                        Operator::DoubleEquals => todo!("comparison"),
-                        Operator::NotEquals => todo!("comparison"),
-                        Operator::Greater => todo!("comparison"),
-                        Operator::Less => todo!("comparison"),
-                        Operator::GreaterEquals => todo!("comparison"),
-                        Operator::LessEquals => todo!("comparison"),
-                        _ => Err(InterpretError::TypeMismatch(format!(
-                            "illegal operation {:?} on numbers",
-                            binop.value.op
-                        ))),
-                    };
-                }
-
-                match binop.value.op {
-                    Operator::ThinArrow => todo!(),
-                    Operator::FatArrow => todo!(),
-                    _ => todo!(),
-                }
-            }
-            Expr::Func(args, body) => todo!(),
-            Expr::Index(node, node1) => todo!(),
-            Expr::Field(expr, field) => todo!(),
-            Expr::Struct(members) => {
-                let loc = members.loc;
-                Ok(Node {
-                    value: Expr::Struct(members.interpret(context)?),
-                    loc,
-                })
-            }
-            Expr::Enum(variants) => {
-                let loc = variants.loc;
-                Ok(Node {
-                    value: Expr::Enum(variants.interpret(context)?),
-                    loc,
-                })
-            }
-            Expr::Call(node, node1) => todo!(),
-            Expr::Block(node) => todo!(),
-            Expr::List(node) => todo!(),
-            Expr::ListType(node, node1) => todo!(),
-        }
-    }
-}
-
-impl Interpret for Node<Member> {
-    type Output = Node<Member>;
-
-    fn interpret(self, context: &mut Context) -> Result<Self::Output, InterpretError> {
-        let loc = self.loc;
-        match self.value {
-            Member::Expr(expr) => Ok(Node {
-                value: Member::Expr(expr.interpret(context)?),
-                loc,
-            }),
-            Member::Named(ident, expr) => Ok(Node {
-                value: Member::Named(ident, expr.interpret(context)?),
-                loc,
-            }),
-            Member::NamedFunc(ident, args, expr) => Ok(Node {
-                value: Member::Named(
-                    ident,
-                    Node {
-                        value: Expr::Func(
-                            args.interpret(context)?,
-                            Box::new(expr.interpret(context)?),
-                        ),
-                        loc,
-                    },
-                ),
-                loc,
-            }),
-        }
-    }
+    fn eval(self, context: &mut Context) -> Result<Self::Output, InterpretError>;
 }

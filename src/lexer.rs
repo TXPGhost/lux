@@ -72,22 +72,22 @@ impl Lexer {
         if c.is_ascii_alphabetic() || c == '_' {
             // determine kind based on first character
             if self.tok_kind == TokKind::Unknown {
-                if c.is_ascii_uppercase() {
-                    self.tok_kind = TokKind::TIdent;
-                }
                 if c.is_ascii_lowercase() || c == '_' {
                     self.tok_kind = TokKind::VIdent;
                 }
-            }
-
-            // if the kind is a type identifier, prohibit all instances of `_`
-            if self.tok_kind == TokKind::TIdent && c == '_' {
-                return Err(LexerError::IllegalTypeIdentifier(self.cur_tok.clone()));
+                if c.is_ascii_uppercase() {
+                    self.tok_kind = TokKind::TIdent;
+                }
             }
 
             // if the kind is a value identifier, prohibit uppercase characters
             if self.tok_kind == TokKind::VIdent && c.is_ascii_uppercase() {
                 return Err(LexerError::IllegalValueIdentifier(self.cur_tok.clone()));
+            }
+
+            // if the kind is a type identifier, prohibit all instances of `_`
+            if self.tok_kind == TokKind::TIdent && c == '_' {
+                return Err(LexerError::IllegalTypeIdentifier(self.cur_tok.clone()));
             }
 
             self.cur_tok.push(c);
@@ -101,8 +101,8 @@ impl Lexer {
             std::mem::swap(&mut self.cur_tok, &mut tok_ident);
             self.tokens.push(LocatedToken {
                 token: match self.tok_kind {
-                    TokKind::TIdent => Token::TIdent(tok_ident),
                     TokKind::VIdent => Token::VIdent(tok_ident),
+                    TokKind::TIdent => Token::TIdent(tok_ident),
                     _ => return Err(LexerError::IllegalIdentifier(self.cur_tok.clone())),
                 },
                 line: self.line,

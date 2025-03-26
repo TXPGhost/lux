@@ -25,19 +25,16 @@ impl Node<Expr> {
                 if op == operator {
                     parser.eat();
                     let rhs = Node::<Expr>::parse_prec(parser, next_prec)?;
-                    let meta = Loc::combine(expr.loc, rhs.loc);
+                    let loc = Loc::combine(expr.loc, rhs.loc);
                     let expr = Expr::Binop(Node {
                         value: Binop {
                             lhs: Box::new(expr),
                             rhs: Box::new(rhs),
                             op: *op,
                         },
-                        loc: meta,
+                        loc,
                     });
-                    return Ok(Node {
-                        value: expr,
-                        loc: meta,
-                    });
+                    return Ok(Node { value: expr, loc });
                 }
             }
         }
@@ -72,7 +69,7 @@ impl Node<Expr> {
                 if op == operator {
                     parser.eat();
                     let rhs = Node::<Expr>::parse_prec(parser, prec)?;
-                    let meta = Loc::combine(expr.loc, rhs.loc);
+                    let loc = Loc::combine(expr.loc, rhs.loc);
                     expr = Node {
                         value: Expr::Binop(Node {
                             value: Binop {
@@ -80,9 +77,9 @@ impl Node<Expr> {
                                 rhs: Box::new(rhs),
                                 op: *op,
                             },
-                            loc: meta,
+                            loc,
                         }),
-                        loc: meta,
+                        loc,
                     };
                     proceed = true;
                     break;
@@ -171,20 +168,20 @@ impl Node<Expr> {
                         Some(Token::Operator(Operator::Dot)) => {
                             parser.eat();
                             let field = Node::<Field>::parse(parser)?;
-                            let meta = Loc::combine(expr.loc, field.loc);
+                            let loc = Loc::combine(expr.loc, field.loc);
                             expr = Node {
                                 value: Expr::Field(Box::new(expr), field),
-                                loc: meta,
+                                loc,
                             };
                             continue;
                         }
                         Some(Token::Open(Grouping::Paren)) => {
                             parser.eat();
                             let args = Node::<List<Node<Member>>>::parse(parser)?;
-                            let meta = Loc::combine(expr.loc, args.loc);
+                            let loc = Loc::combine(expr.loc, args.loc);
                             expr = Node {
                                 value: Expr::Call(Box::new(expr), args),
-                                loc: meta,
+                                loc,
                             };
                             if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
                                 return Err(ParseError::ExpectedToken(
@@ -199,10 +196,10 @@ impl Node<Expr> {
                         Some(Token::Open(Grouping::Bracket)) => {
                             parser.eat();
                             let index = Node::<Expr>::parse(parser)?;
-                            let meta = Loc::combine(expr.loc, index.loc);
+                            let loc = Loc::combine(expr.loc, index.loc);
                             expr = Node {
                                 value: Expr::Index(Box::new(expr), Box::new(index)),
-                                loc: meta,
+                                loc,
                             };
                             if !matches!(parser.cur(), Some(Token::Close(Grouping::Bracket))) {
                                 return Err(ParseError::ExpectedToken(
@@ -222,7 +219,7 @@ impl Node<Expr> {
             // explicit grouping (`()`, `[]`, `<>`)
             10 => match parser.cur() {
                 Some(Token::Open(Grouping::Paren)) => {
-                    let open_meta = Loc::from_token(parser.cur_loc().unwrap());
+                    let open_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
                     let members = Node::<List<Node<Member>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
@@ -232,17 +229,17 @@ impl Node<Expr> {
                             parser.cur_loc().cloned(),
                         ));
                     }
-                    let close_meta = Loc::from_token(parser.cur_loc().unwrap());
+                    let close_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    let meta =
-                        Loc::combine(members.loc, Loc::combine(Some(open_meta), Some(close_meta)));
+                    let loc =
+                        Loc::combine(members.loc, Loc::combine(Some(open_loc), Some(close_loc)));
                     Ok(Node {
                         value: Expr::Struct(members),
-                        loc: meta,
+                        loc,
                     })
                 }
                 Some(Token::Open(Grouping::Angle)) => {
-                    let open_meta = Loc::from_token(parser.cur_loc().unwrap());
+                    let open_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
                     let variants = Node::<List<Node<Member>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Angle))) {
@@ -252,20 +249,18 @@ impl Node<Expr> {
                             parser.cur_loc().cloned(),
                         ));
                     }
-                    let close_meta = Loc::from_token(parser.cur_loc().unwrap());
+                    let close_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    let meta = Loc::combine(
-                        variants.loc,
-                        Loc::combine(Some(open_meta), Some(close_meta)),
-                    );
+                    let loc =
+                        Loc::combine(variants.loc, Loc::combine(Some(open_loc), Some(close_loc)));
                     Ok(Node {
                         value: Expr::Enum(variants),
-                        loc: meta,
+                        loc,
                     })
                 }
                 Some(Token::Open(Grouping::Curly)) => {
                     parser.eat();
-                    let open_meta = Loc::from_token(parser.cur_loc().unwrap());
+                    let open_loc = Loc::from_token(parser.cur_loc().unwrap());
                     let stmts = Node::<List<Node<Stmt>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Curly))) {
                         return Err(ParseError::ExpectedToken(
@@ -274,17 +269,17 @@ impl Node<Expr> {
                             parser.cur_loc().cloned(),
                         ));
                     }
-                    let close_meta = Loc::from_token(parser.cur_loc().unwrap());
+                    let close_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    let meta =
-                        Loc::combine(stmts.loc, Loc::combine(Some(open_meta), Some(close_meta)));
+                    let loc =
+                        Loc::combine(stmts.loc, Loc::combine(Some(open_loc), Some(close_loc)));
                     Ok(Node {
                         value: Expr::Block(stmts),
-                        loc: meta,
+                        loc,
                     })
                 }
                 Some(Token::Open(Grouping::Bracket)) => {
-                    let open_meta = Loc::from_token(parser.cur_loc().unwrap());
+                    let open_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
                     let mut elements = Node::<List<Node<Expr>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Bracket))) {
@@ -294,36 +289,34 @@ impl Node<Expr> {
                             parser.cur_loc().cloned(),
                         ));
                     }
-                    let close_meta = Loc::from_token(parser.cur_loc().unwrap());
+                    let close_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    let meta = Loc::combine(
-                        elements.loc,
-                        Loc::combine(Some(open_meta), Some(close_meta)),
-                    );
+                    let loc =
+                        Loc::combine(elements.loc, Loc::combine(Some(open_loc), Some(close_loc)));
                     if matches!(
                         parser.cur(),
-                        Some(Token::TIdent(_) | Token::VIdent(_) | Token::Open(Grouping::Paren))
+                        Some(Token::VIdent(_) | Token::TIdent(_) | Token::Open(Grouping::Paren))
                     ) {
                         let ty = Node::<Expr>::parse(parser)?;
-                        let meta = Loc::combine(meta, ty.loc);
+                        let loc = Loc::combine(loc, ty.loc);
                         match elements.value.elements.len() {
                             0 => Ok(Node {
                                 value: Expr::ListType(None, Box::new(ty)),
-                                loc: meta,
+                                loc,
                             }),
                             1 => Ok(Node {
                                 value: Expr::ListType(
                                     Some(Box::new(elements.value.elements.pop().unwrap())),
                                     Box::new(ty),
                                 ),
-                                loc: meta,
+                                loc,
                             }),
                             n => Err(ParseError::IllegalListType("multiple list sizes", n)),
                         }
                     } else {
                         Ok(Node {
                             value: Expr::List(elements),
-                            loc: meta,
+                            loc,
                         })
                     }
                 }
@@ -331,20 +324,20 @@ impl Node<Expr> {
             },
             // identifiers and literals
             11 => match parser.cur() {
-                Some(Token::TIdent(_) | Token::VIdent(_)) => {
+                Some(Token::VIdent(_) | Token::TIdent(_)) => {
                     let ident = Node::<Ident>::parse(parser)?;
-                    let meta = ident.loc;
+                    let loc = ident.loc;
                     Ok(Node {
                         value: Expr::Ident(ident),
-                        loc: meta,
+                        loc,
                     })
                 }
                 Some(Token::Number(n)) => {
-                    let meta = Loc::from_token(parser.cur_loc().unwrap());
+                    let loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
                     Ok(Node {
                         value: Expr::Number(n.parse().map_err(ParseError::NumberParseError)?),
-                        loc: Some(meta),
+                        loc: Some(loc),
                     })
                 }
                 _ => Err(ParseError::UnexpectedToken(

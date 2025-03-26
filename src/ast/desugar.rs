@@ -17,8 +17,8 @@ pub enum DExpr {
 
 #[derive(Clone, Debug)]
 pub enum DUniqueIdent {
-    TIdent(Rc<str>, usize),
     VIdent(Rc<str>, usize),
+    TIdent(Rc<str>, usize),
 }
 
 #[derive(Clone, Debug)]
@@ -67,8 +67,8 @@ impl Desugar for Node<Member> {
         Node {
             value: match self.value {
                 Member::Expr(expr) => expr.value.desugar(),
-                Member::Named(_, node1) => todo!(),
-                Member::NamedFunc(node, node1, node2) => todo!(),
+                Member::Named(_, _) => todo!(),
+                Member::NamedFunc(_, _, _) => todo!(),
             },
             loc: self.loc,
         }

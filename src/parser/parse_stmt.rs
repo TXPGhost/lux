@@ -19,10 +19,10 @@ impl Parse for Node<Stmt> {
                     parser.cur_loc().cloned(),
                 ));
             };
-            let meta = val.loc;
+            let loc = val.loc;
             return Ok(Node {
                 value: Stmt::Binding(ident, ty, val),
-                loc: Loc::combine(expr.loc, meta),
+                loc: Loc::combine(expr.loc, loc),
             });
         }
         let None = ty else {
@@ -33,10 +33,10 @@ impl Parse for Node<Stmt> {
             ));
         };
 
-        let meta = expr.loc;
+        let loc = expr.loc;
         Ok(Node {
             value: Stmt::Expr(expr),
-            loc: meta,
+            loc,
         })
     }
 }

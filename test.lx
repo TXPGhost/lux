@@ -1,9 +1,9 @@
 Vector3: (
-	x: F32
-	y: F32
-	z: F32
+	x: U64
+	y: U64
+	z: U64
 
-	new(x: F32, y: F32, z: F32): Vector3(x, y, z)
+	new(x: U64, y: U64, z: U64): Vector3(x, y, z)
 
 	add(v1: Vector3, v2: Vector3): {
 		new_x = v1.x + v2.x
