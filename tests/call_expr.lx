@@ -1,0 +1,8 @@
+func(x: U64, y: U64): U64
+
+main(): {
+	x = 10
+	y = 20
+	result = func(x + y, 5)
+	result
+}

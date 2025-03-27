@@ -1,0 +1,5 @@
+test_fn(x: U64): U64
+
+main(): {
+	test_fn(test_fn(42))
+}

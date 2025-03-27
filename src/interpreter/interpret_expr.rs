@@ -109,7 +109,7 @@ impl Interpret for Node<Expr> {
                                 args.val.elements.len(),
                             ));
                         }
-                        todo!("call")
+                        Err(InterpretError::Unimplemented("todo call"))
                     }
                     Expr::Struct(_) => todo!("constructor"),
                     Expr::Ident(_) if context.strategy() == InterpretStrategy::Simplify => {

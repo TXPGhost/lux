@@ -183,6 +183,9 @@ pub enum InterpretError {
 
     /// Tried to use the void identifier `_` as an expression
     VoidIsUndefined,
+
+    /// An interpreter feature is not yet implemented
+    Unimplemented(&'static str),
 }
 
 /// Trait for interpreting expressions

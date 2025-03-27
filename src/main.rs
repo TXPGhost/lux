@@ -56,7 +56,10 @@ fn main() {
         print!("RUNNING TEST {} ... ", path.display());
         match test_file(path) {
             Ok(_) => println!("PASS"),
-            Err(e) => println!("FAIL: {:?}", e),
+            Err(TestError::Io(e)) => println!("FAIL_IO: {:?}", e),
+            Err(TestError::Lex(e)) => println!("FAIL_LEX: {:?}", e),
+            Err(TestError::Parse(e)) => println!("FAIL_PARSE: {:?}", e),
+            Err(TestError::Interpret(e)) => println!("FAIL_INTERPRET: {:?}", e),
         }
     }
 }
