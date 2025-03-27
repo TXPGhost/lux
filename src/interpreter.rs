@@ -75,7 +75,6 @@ impl<'a> Context<'a> {
         if ident.is_void() {
             return Ok(());
         }
-        println!("adding to context {:?} -> {:?}", ident, expr.value);
         let None = self
             .associations
             .insert(ident.clone(), self.definitions.len())
@@ -104,10 +103,6 @@ impl<'a> Context<'a> {
         if ident.is_void() {
             return Ok(());
         }
-        println!(
-            "adding to context {:?} -> {:?}: {:?}",
-            ident, ty.value, value.value
-        );
         if let Some(index) = self
             .associations
             .insert(ident.clone(), self.definitions.len())
@@ -166,7 +161,7 @@ pub enum InterpretStrategy {
 }
 
 /// An error that is encountered while interpreting
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum InterpretError {
     /// An undefined symbol was encountered
     UndefinedSymbol(Node<Ident>),

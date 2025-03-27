@@ -11,6 +11,7 @@ impl Interpret for Node<Expr> {
                     InterpretStrategy::Eval => Ok(value.clone()),
                     InterpretStrategy::Simplify => Ok(ty.clone()),
                 },
+                // allow recursive definitions in some cases
                 Err(InterpretError::UndefinedSymbol(_)) => match context.strategy() {
                     InterpretStrategy::Eval => Err(InterpretError::UndefinedSymbol(ident)),
                     InterpretStrategy::Simplify => Ok(Node {

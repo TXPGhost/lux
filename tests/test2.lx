@@ -1,9 +1,11 @@
+min(x: U64, y: U64): U64
+
 AST: (
 	Metadata: (
-		line_min: USize
-		line_max: USize
-		col_min: USize
-		col_max: USize
+		line_min: U64
+		line_max: U64
+		col_min: U64
+		col_max: U64
 
 		combine(lhs: Metadata, rhs: Metadata): Metadata(
 			line_min: min(lhs.line_min, rhs.line_min)

@@ -1,0 +1,6 @@
+main(): {
+	x = 10
+	y = 20
+	answer = x + y
+	print(answer)
+}

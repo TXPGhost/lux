@@ -8,7 +8,7 @@ use strum::{EnumIter, IntoEnumIterator};
 
 /// An error that can occur during lexing
 #[derive(Clone, Debug)]
-pub enum LexerError {
+pub enum LexError {
     /// An unexpected character was encountered
     UnexpectedChar(char),
 
@@ -80,7 +80,7 @@ impl Lexer {
 
     /// Attempts to tokenize an identifier. Returns `true` if the character `c` was part of an
     /// identifier.
-    fn tokenize_ident(&mut self, c: char) -> Result<bool, LexerError> {
+    fn tokenize_ident(&mut self, c: char) -> Result<bool, LexError> {
         if self.tok_kind == TokKind::Number {
             return Ok(false);
         }
@@ -97,12 +97,12 @@ impl Lexer {
 
             // if the kind is a value identifier, prohibit uppercase characters
             if self.tok_kind == TokKind::VIdent && c.is_ascii_uppercase() {
-                return Err(LexerError::IllegalValueIdentifier(self.cur_tok.clone()));
+                return Err(LexError::IllegalValueIdentifier(self.cur_tok.clone()));
             }
 
             // if the kind is a type identifier, prohibit all instances of `_`
             if self.tok_kind == TokKind::TIdent && c == '_' {
-                return Err(LexerError::IllegalTypeIdentifier(self.cur_tok.clone()));
+                return Err(LexError::IllegalTypeIdentifier(self.cur_tok.clone()));
             }
 
             self.cur_tok.push(c);
@@ -118,7 +118,7 @@ impl Lexer {
                 token: match self.tok_kind {
                     TokKind::VIdent => Token::VIdent(tok_ident),
                     TokKind::TIdent => Token::TIdent(tok_ident),
-                    _ => return Err(LexerError::IllegalIdentifier(self.cur_tok.clone())),
+                    _ => return Err(LexError::IllegalIdentifier(self.cur_tok.clone())),
                 },
                 line: self.line,
                 col_start: self.col - len,
@@ -132,7 +132,7 @@ impl Lexer {
     }
 
     /// Attempts to tokenize a number. Returns `true` if the character `c` was part of a number.
-    fn tokenize_number(&mut self, c: char) -> Result<bool, LexerError> {
+    fn tokenize_number(&mut self, c: char) -> Result<bool, LexError> {
         if self.tok_kind == TokKind::VIdent || self.tok_kind == TokKind::TIdent {
             return Ok(false);
         }
@@ -141,7 +141,7 @@ impl Lexer {
             self.cur_tok.push(c);
             if c == '.' {
                 if self.is_decimal {
-                    return Err(LexerError::MultipleDecimalPoints);
+                    return Err(LexError::MultipleDecimalPoints);
                 } else {
                     self.is_decimal = true;
                 }
@@ -158,7 +158,7 @@ impl Lexer {
                     col_start: self.col - len,
                     col_end: self.col - 1,
                 }),
-                _ => return Err(LexerError::IllegalNumber(self.cur_tok.clone())),
+                _ => return Err(LexError::IllegalNumber(self.cur_tok.clone())),
             }
             self.tok_kind = TokKind::Unknown;
             Ok(false)
@@ -168,7 +168,7 @@ impl Lexer {
     }
 
     /// Attempts to tokenize the given character and two-character lookahead.
-    pub fn tokenize_char(&mut self, c: [char; 3]) -> Result<(), LexerError> {
+    pub fn tokenize_char(&mut self, c: [char; 3]) -> Result<(), LexError> {
         if self.tokenize_ident(c[0])? {
             return Ok(());
         };
@@ -225,7 +225,7 @@ impl Lexer {
 
                 // find the `=` sign (if it exists) for "equals" operators
                 let (op, len) = match (single_op, double_op) {
-                    (None, None) => return Err(LexerError::UnexpectedChar(c[0])),
+                    (None, None) => return Err(LexError::UnexpectedChar(c[0])),
                     (Some(single_op), None) => (single_op, 1),
                     (_, Some(double_op)) => (double_op, 2),
                 };
@@ -242,9 +242,9 @@ impl Lexer {
     }
 
     /// Attempts to tokenize the source file.
-    pub fn tokenize(mut self) -> Result<Vec<LocatedToken>, LexerError> {
+    pub fn tokenize(mut self) -> Result<Vec<LocatedToken>, LexError> {
         let Some(source) = self.source.take() else {
-            return Err(LexerError::NoSourceProvided);
+            return Err(LexError::NoSourceProvided);
         };
         // queue of current line and column
         let mut line = [1; 4];
