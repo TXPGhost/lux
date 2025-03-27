@@ -3,16 +3,16 @@ use crate::interpreter::*;
 impl Interpret for Node<Member> {
     type Output = Node<Member>;
 
-    fn eval(self, context: &mut Context) -> Result<Self::Output, InterpretError> {
+    fn interp(self, context: &mut Context) -> Result<Self::Output, InterpretError> {
         let loc = self.loc;
         match self.value {
             Member::Expr(expr) => Ok(Node {
-                value: Member::Expr(expr.eval(context)?),
+                value: Member::Expr(expr.interp(context)?),
                 loc,
             }),
             Member::Named(ident, expr) => {
-                let expr = expr.eval(&mut context.frame(InterpretStrategy::Eval))?;
-                context.add(ident.value.clone(), expr.clone());
+                let expr = expr.interp(&mut context.frame(InterpretStrategy::Eval))?;
+                context.unique_add(ident.value.clone(), expr.clone())?;
                 Ok(Node {
                     value: Member::Named(ident, expr),
                     loc,
@@ -22,11 +22,11 @@ impl Interpret for Node<Member> {
                 let expr = Node {
                     value: Expr::Func(
                         args,
-                        Box::new(expr.eval(&mut context.frame(InterpretStrategy::Simplify))?),
+                        Box::new(expr.interp(&mut context.frame(InterpretStrategy::Simplify))?),
                     ),
                     loc,
                 };
-                context.add(ident.value.clone(), expr.clone());
+                context.unique_add(ident.value.clone(), expr.clone())?;
                 Ok(Node {
                     value: Member::Named(ident, expr),
                     loc,

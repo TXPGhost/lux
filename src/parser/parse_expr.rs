@@ -301,11 +301,11 @@ impl Node<Expr> {
                         let loc = Loc::combine(loc, ty.loc);
                         match elements.value.elements.len() {
                             0 => Ok(Node {
-                                value: Expr::ListType(None, Box::new(ty)),
+                                value: Expr::ArrayType(None, Box::new(ty)),
                                 loc,
                             }),
                             1 => Ok(Node {
-                                value: Expr::ListType(
+                                value: Expr::ArrayType(
                                     Some(Box::new(elements.value.elements.pop().unwrap())),
                                     Box::new(ty),
                                 ),
@@ -315,7 +315,7 @@ impl Node<Expr> {
                         }
                     } else {
                         Ok(Node {
-                            value: Expr::List(elements),
+                            value: Expr::Array(elements),
                             loc,
                         })
                     }

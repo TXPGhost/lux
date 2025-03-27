@@ -17,8 +17,8 @@ pub enum DExpr {
 
 #[derive(Clone, Debug)]
 pub enum DUniqueIdent {
-    VIdent(Rc<str>, usize),
-    TIdent(Rc<str>, usize),
+    VIdent(Arc<str>, usize),
+    TIdent(Arc<str>, usize),
 }
 
 #[derive(Clone, Debug)]
