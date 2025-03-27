@@ -5,11 +5,8 @@ impl Interpret for Node<Stmt> {
 
     fn interp(self, context: &mut Context) -> Result<Self::Output, InterpretError> {
         let loc = self.loc;
-        match self.value {
-            Stmt::Expr(expr) => Ok(Node {
-                value: Stmt::Expr(expr.interp(context)?),
-                loc,
-            }),
+        match self.val {
+            Stmt::Expr(expr) => Ok(Stmt::Expr(expr.interp(context)?).node(loc)),
             Stmt::Binding(ident, ty, value) => {
                 let value = value.interp(context)?;
                 let ty = match ty {
@@ -17,14 +14,11 @@ impl Interpret for Node<Stmt> {
                     None => None,
                 };
                 context.add_local(
-                    ident.value.clone(),
+                    ident.val.clone(),
                     ty.clone().unwrap_or_else(|| value.clone()),
                     value.clone(),
                 )?;
-                Ok(Node {
-                    value: Stmt::Binding(ident, ty, value),
-                    loc: None,
-                })
+                Ok(Stmt::Binding(ident, ty, value).unloc())
             }
         }
     }

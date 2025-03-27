@@ -21,13 +21,10 @@ where
             }
         }
 
-        let meta = list
+        let loc = list
             .iter()
             .fold(None, |acc, element| Loc::combine(acc, element.loc));
 
-        Ok(Node {
-            value: List { elements: list },
-            loc: meta,
-        })
+        Ok(List::new(list).node(loc))
     }
 }

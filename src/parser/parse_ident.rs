@@ -15,9 +15,6 @@ impl Parse for Node<Ident> {
                 ))
             }
         };
-        Ok(Node {
-            value: ident,
-            loc: Some(Loc::from_token(tok.unwrap())),
-        })
+        Ok(ident.loc(Loc::from_token(tok.unwrap())))
     }
 }

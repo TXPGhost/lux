@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 #[derive(Clone, Debug)]
 pub struct Node<T: Clone + Debug> {
     /// The value of the AST node
-    pub value: T,
+    pub val: T,
 
     /// The AST node's location
     pub loc: Option<Loc>,
@@ -62,6 +62,22 @@ impl Loc {
 pub struct List<T> {
     /// The elements of the list
     pub elements: Vec<T>,
+}
+
+impl<T> List<T> {
+    /// Constructs a new [List<T>] from the given elements
+    pub fn new(elements: impl Into<Vec<T>>) -> Self {
+        Self {
+            elements: elements.into(),
+        }
+    }
+
+    /// Constructs an empty [List<T>]
+    pub fn empty() -> Self {
+        Self {
+            elements: Vec::new(),
+        }
+    }
 }
 
 /// A member AST node, used within structs and enums
@@ -123,22 +139,12 @@ pub enum Expr {
 impl Expr {
     /// Generates a unit expression `()`
     pub fn unit() -> Self {
-        Expr::Struct(Node {
-            value: List {
-                elements: Vec::new(),
-            },
-            loc: None,
-        })
+        Expr::Struct(List::empty().unloc())
     }
 
     /// Generates a never expression `<>`
     pub fn never() -> Self {
-        Expr::Enum(Node {
-            value: List {
-                elements: Vec::new(),
-            },
-            loc: None,
-        })
+        Expr::Enum(List::empty().unloc())
     }
 }
 
@@ -188,6 +194,17 @@ pub struct Binop {
     pub op: Operator,
 }
 
+impl Binop {
+    /// Constructs a new [Binop] with the given [Operator] and operands
+    pub fn new(lhs: Node<Expr>, op: Operator, rhs: Node<Expr>) -> Self {
+        Self {
+            lhs: Box::new(lhs),
+            op,
+            rhs: Box::new(rhs),
+        }
+    }
+}
+
 /// A unary operation (e.g. `-x`)
 #[derive(Clone, Debug)]
 pub struct Unop {
@@ -224,3 +241,29 @@ pub enum Primitive {
     /// The unsigned 64-bit integer type
     U64,
 }
+
+/// A helper trait for constructing [Node]s
+pub trait NodeExt: Clone + Debug {
+    /// Constructs a located [Node] from [self] and the given [Loc]
+    fn loc(self, loc: Loc) -> Node<Self> {
+        Node {
+            val: self,
+            loc: Some(loc),
+        }
+    }
+
+    /// Constructs a located [Node] from [self] and the given [Option<Loc>]
+    fn node(self, loc: Option<Loc>) -> Node<Self> {
+        Node { val: self, loc }
+    }
+
+    /// Constructs an unlocated [Node] from [self] (i.e. with `loc` set to [None])
+    fn unloc(self) -> Node<Self> {
+        Node {
+            val: self,
+            loc: None,
+        }
+    }
+}
+
+impl<T: Clone + Debug> NodeExt for T {}

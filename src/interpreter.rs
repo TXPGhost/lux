@@ -44,12 +44,12 @@ impl<'a> Context<'a> {
         &self,
         ident: &Node<Ident>,
     ) -> Result<&ContextDefinition, InterpretError> {
-        if ident.value.is_void() {
+        if ident.val.is_void() {
             return Err(InterpretError::VoidIsUndefined);
         }
         let index = self
             .associations
-            .get(&ident.value)
+            .get(&ident.val)
             .ok_or_else(|| InterpretError::UndefinedSymbol(ident.clone()))?;
         let expr = self
             .definitions
@@ -140,10 +140,7 @@ impl Default for Context<'_> {
         context
             .add_static(
                 Ident::TIdent("U64".into()),
-                Node {
-                    value: Expr::Primitive(Primitive::U64),
-                    loc: None,
-                },
+                Expr::Primitive(Primitive::U64).unloc(),
             )
             .expect("name conflict should not happen");
         context

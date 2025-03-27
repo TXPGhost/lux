@@ -7,15 +7,10 @@ where
     type Output = Node<List<T::Output>>;
     fn interp(self, context: &mut Context) -> Result<Self::Output, InterpretError> {
         let loc = self.loc;
-        let mut new_elements = Vec::with_capacity(self.value.elements.len());
-        for element in self.value.elements {
+        let mut new_elements = Vec::with_capacity(self.val.elements.len());
+        for element in self.val.elements {
             new_elements.push(element.interp(context)?)
         }
-        Ok(Node {
-            value: List {
-                elements: new_elements,
-            },
-            loc,
-        })
+        Ok(List::new(new_elements).node(loc))
     }
 }

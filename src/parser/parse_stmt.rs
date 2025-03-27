@@ -13,17 +13,14 @@ impl Parse for Node<Stmt> {
         if matches!(parser.cur(), Some(Token::Equals)) {
             parser.eat();
             let val = Node::<Expr>::parse(parser)?;
-            let Expr::Ident(ident) = expr.value else {
+            let Expr::Ident(ident) = expr.val else {
                 return Err(ParseError::ExpectedIdent(
                     "while parsing binding",
                     parser.cur_loc().cloned(),
                 ));
             };
             let loc = val.loc;
-            return Ok(Node {
-                value: Stmt::Binding(ident, ty, val),
-                loc: Loc::combine(expr.loc, loc),
-            });
+            return Ok(Stmt::Binding(ident, ty, val).node(Loc::combine(expr.loc, loc)));
         }
         let None = ty else {
             return Err(ParseError::ExpectedToken(
@@ -34,9 +31,6 @@ impl Parse for Node<Stmt> {
         };
 
         let loc = expr.loc;
-        Ok(Node {
-            value: Stmt::Expr(expr),
-            loc,
-        })
+        Ok(Stmt::Expr(expr).node(loc))
     }
 }

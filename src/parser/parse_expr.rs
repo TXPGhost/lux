@@ -26,15 +26,8 @@ impl Node<Expr> {
                     parser.eat();
                     let rhs = Node::<Expr>::parse_prec(parser, next_prec)?;
                     let loc = Loc::combine(expr.loc, rhs.loc);
-                    let expr = Expr::Binop(Node {
-                        value: Binop {
-                            lhs: Box::new(expr),
-                            rhs: Box::new(rhs),
-                            op: *op,
-                        },
-                        loc,
-                    });
-                    return Ok(Node { value: expr, loc });
+                    let expr = Expr::Binop(Binop::new(expr, *op, rhs).node(loc));
+                    return Ok(expr.node(loc));
                 }
             }
         }
@@ -70,17 +63,7 @@ impl Node<Expr> {
                     parser.eat();
                     let rhs = Node::<Expr>::parse_prec(parser, prec)?;
                     let loc = Loc::combine(expr.loc, rhs.loc);
-                    expr = Node {
-                        value: Expr::Binop(Node {
-                            value: Binop {
-                                lhs: Box::new(expr),
-                                rhs: Box::new(rhs),
-                                op: *op,
-                            },
-                            loc,
-                        }),
-                        loc,
-                    };
+                    expr = Expr::Binop(Binop::new(expr, *op, rhs).node(loc)).node(loc);
                     proceed = true;
                     break;
                 }
@@ -98,13 +81,10 @@ impl Node<Expr> {
             0 => {
                 let lambda = Self::parse_binop_right_assoc(parser, prec, &[Operator::FatArrow])?;
                 let loc = lambda.loc;
-                if let Expr::Binop(binop) = &lambda.value {
-                    if let Operator::FatArrow = &binop.value.op {
-                        if let Expr::Struct(members) = &binop.value.lhs.value {
-                            return Ok(Node {
-                                value: Expr::Func(members.clone(), binop.value.rhs.clone()),
-                                loc,
-                            });
+                if let Expr::Binop(binop) = &lambda.val {
+                    if let Operator::FatArrow = &binop.val.op {
+                        if let Expr::Struct(members) = &binop.val.lhs.val {
+                            return Ok(Expr::Func(members.clone(), binop.val.rhs.clone()).node(loc));
                         }
                     }
                 }
@@ -169,20 +149,14 @@ impl Node<Expr> {
                             parser.eat();
                             let field = Node::<Field>::parse(parser)?;
                             let loc = Loc::combine(expr.loc, field.loc);
-                            expr = Node {
-                                value: Expr::Field(Box::new(expr), field),
-                                loc,
-                            };
+                            expr = Expr::Field(Box::new(expr), field).node(loc);
                             continue;
                         }
                         Some(Token::Open(Grouping::Paren)) => {
                             parser.eat();
                             let args = Node::<List<Node<Member>>>::parse(parser)?;
                             let loc = Loc::combine(expr.loc, args.loc);
-                            expr = Node {
-                                value: Expr::Call(Box::new(expr), args),
-                                loc,
-                            };
+                            expr = Expr::Call(Box::new(expr), args).node(loc);
                             if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
                                 return Err(ParseError::ExpectedToken(
                                     "while parsing index",
@@ -197,10 +171,7 @@ impl Node<Expr> {
                             parser.eat();
                             let index = Node::<Expr>::parse(parser)?;
                             let loc = Loc::combine(expr.loc, index.loc);
-                            expr = Node {
-                                value: Expr::Index(Box::new(expr), Box::new(index)),
-                                loc,
-                            };
+                            expr = Expr::Index(Box::new(expr), Box::new(index)).node(loc);
                             if !matches!(parser.cur(), Some(Token::Close(Grouping::Bracket))) {
                                 return Err(ParseError::ExpectedToken(
                                     "while parsing index",
@@ -233,10 +204,7 @@ impl Node<Expr> {
                     parser.eat();
                     let loc =
                         Loc::combine(members.loc, Loc::combine(Some(open_loc), Some(close_loc)));
-                    Ok(Node {
-                        value: Expr::Struct(members),
-                        loc,
-                    })
+                    Ok(Expr::Struct(members).node(loc))
                 }
                 Some(Token::Open(Grouping::Angle)) => {
                     let open_loc = Loc::from_token(parser.cur_loc().unwrap());
@@ -253,10 +221,7 @@ impl Node<Expr> {
                     parser.eat();
                     let loc =
                         Loc::combine(variants.loc, Loc::combine(Some(open_loc), Some(close_loc)));
-                    Ok(Node {
-                        value: Expr::Enum(variants),
-                        loc,
-                    })
+                    Ok(Expr::Enum(variants).node(loc))
                 }
                 Some(Token::Open(Grouping::Curly)) => {
                     parser.eat();
@@ -273,10 +238,7 @@ impl Node<Expr> {
                     parser.eat();
                     let loc =
                         Loc::combine(stmts.loc, Loc::combine(Some(open_loc), Some(close_loc)));
-                    Ok(Node {
-                        value: Expr::Block(stmts),
-                        loc,
-                    })
+                    Ok(Expr::Block(stmts).node(loc))
                 }
                 Some(Token::Open(Grouping::Bracket)) => {
                     let open_loc = Loc::from_token(parser.cur_loc().unwrap());
@@ -299,25 +261,17 @@ impl Node<Expr> {
                     ) {
                         let ty = Node::<Expr>::parse(parser)?;
                         let loc = Loc::combine(loc, ty.loc);
-                        match elements.value.elements.len() {
-                            0 => Ok(Node {
-                                value: Expr::ArrayType(None, Box::new(ty)),
-                                loc,
-                            }),
-                            1 => Ok(Node {
-                                value: Expr::ArrayType(
-                                    Some(Box::new(elements.value.elements.pop().unwrap())),
-                                    Box::new(ty),
-                                ),
-                                loc,
-                            }),
+                        match elements.val.elements.len() {
+                            0 => Ok(Expr::ArrayType(None, Box::new(ty)).node(loc)),
+                            1 => Ok(Expr::ArrayType(
+                                Some(Box::new(elements.val.elements.pop().unwrap())),
+                                Box::new(ty),
+                            )
+                            .node(loc)),
                             n => Err(ParseError::IllegalListType("multiple list sizes", n)),
                         }
                     } else {
-                        Ok(Node {
-                            value: Expr::Array(elements),
-                            loc,
-                        })
+                        Ok(Expr::Array(elements).node(loc))
                     }
                 }
                 _ => Self::parse_prec(parser, prec + 1),
@@ -327,18 +281,12 @@ impl Node<Expr> {
                 Some(Token::VIdent(_) | Token::TIdent(_)) => {
                     let ident = Node::<Ident>::parse(parser)?;
                     let loc = ident.loc;
-                    Ok(Node {
-                        value: Expr::Ident(ident),
-                        loc,
-                    })
+                    Ok(Expr::Ident(ident).node(loc))
                 }
                 Some(Token::Number(n)) => {
                     let loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    Ok(Node {
-                        value: Expr::Number(n.parse().map_err(ParseError::NumberParseError)?),
-                        loc: Some(loc),
-                    })
+                    Ok(Expr::Number(n.parse().map_err(ParseError::NumberParseError)?).loc(loc))
                 }
                 _ => Err(ParseError::UnexpectedToken(
                     "while parsing expr",

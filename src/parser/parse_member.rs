@@ -34,39 +34,21 @@ impl Parse for Node<Member> {
                 let expr = Node::<Expr>::parse(parser)?;
                 let loc = Loc::combine(ident.loc, expr.loc);
                 match args {
-                    Some(args) => Ok(Node {
-                        value: Member::NamedFunc(ident, args, expr),
-                        loc,
-                    }),
-                    None => Ok(Node {
-                        value: Member::Named(ident, expr),
-                        loc,
-                    }),
+                    Some(args) => Ok(Member::NamedFunc(ident, args, expr).node(loc)),
+                    None => Ok(Member::Named(ident, expr).node(loc)),
                 }
             } else if matches!(parser.cur(), Some(Token::Separator(_) | Token::Close(_))) {
                 let loc = ident.loc;
-                let expr = Node {
-                    value: Expr::Ident(ident),
-                    loc,
-                };
+                let expr = Expr::Ident(ident).node(loc);
                 match args {
                     Some(args) => {
                         let loc = Loc::combine(
                             Loc::combine(loc, args.loc),
                             Loc::combine(opening_paren, closing_paren),
                         );
-                        Ok(Node {
-                            value: Member::Expr(Node {
-                                value: Expr::Call(Box::new(expr), args),
-                                loc,
-                            }),
-                            loc,
-                        })
+                        Ok(Member::Expr(Expr::Call(Box::new(expr), args).node(loc)).node(loc))
                     }
-                    None => Ok(Node {
-                        value: Member::Expr(expr),
-                        loc,
-                    }),
+                    None => Ok(Member::Expr(expr).node(loc)),
                 }
             } else {
                 Err(ParseError::UnexpectedToken(
@@ -77,10 +59,7 @@ impl Parse for Node<Member> {
         } else {
             let expr = Node::<Expr>::parse(parser)?;
             let loc = expr.loc;
-            Ok(Node {
-                value: Member::Expr(expr),
-                loc,
-            })
+            Ok(Member::Expr(expr).node(loc))
         }
     }
 }
