@@ -6,17 +6,32 @@ use std::{
 
 use strum::{EnumIter, IntoEnumIterator};
 
+/// An error that can occur during lexing
 #[derive(Clone, Debug)]
 pub enum LexerError {
+    /// An unexpected character was encountered
     UnexpectedChar(char),
+
+    /// An illegal identifier was written
     IllegalIdentifier(String),
-    IllegalTypeIdentifier(String),
+
+    /// An illegal value identifier was written
     IllegalValueIdentifier(String),
+
+    /// An illegal type identifier was written
+    IllegalTypeIdentifier(String),
+
+    /// No source file was provided
     NoSourceProvided,
+
+    /// Multiple decimal points were encountered in a numeric literal
     MultipleDecimalPoints,
+
+    /// A number was unable to be tokenized
     IllegalNumber(String),
 }
 
+/// A lexer, which translates a source [String] into a [Vec] of tokens
 #[derive(Clone, Debug)]
 pub struct Lexer {
     source: Option<String>,
@@ -290,33 +305,70 @@ impl Lexer {
     }
 }
 
+/// A token
 #[derive(Clone, Debug)]
 pub enum Token {
+    /// A value identifier (e.g. `foo_bar`)
     VIdent(String),
+
+    /// A type identifier (e.g. `FooBar`)
     TIdent(String),
+
+    /// A numberic literal (e.g. `42` or `1.0`)
     Number(String),
+
+    /// A character literal (e.g. `'x'`)
     Character(char),
+
+    /// A string literal (e.g. `"Hello, world"`)
     String(String),
+
+    /// The equals token `=`
     Equals,
+
+    /// The assignment token `:=`
     Assign,
+
+    /// An "operator equals" token (e.g. `+=` or `*=`)
     OperatorEquals(Operator),
+
+    /// The colon token `:`
     Colon,
+
+    /// A separator token, either newlines or `,`
     Separator(Separator),
+
+    /// A comment token
     Comment(String),
+
+    /// An opening grouping (e.g. `(` or `[`)
     Open(Grouping),
+
+    /// A closing grouping (e.g. `)` or `]`)
     Close(Grouping),
+
+    /// An operator (e.g. `+`)
     Operator(Operator),
 }
 
+/// A grouping token
 #[derive(Clone, Debug)]
 pub enum Grouping {
+    /// Parenthesis `()`
     Paren,
+
+    /// Brackets `[]`
     Bracket,
+
+    /// Angle brackets `<>`
     Angle,
+
+    /// Curly braces `{}`
     Curly,
 }
 
 impl Grouping {
+    /// Returns the opening character of the given grouping
     pub fn open_char(&self) -> char {
         match self {
             Grouping::Paren => '(',
@@ -325,6 +377,8 @@ impl Grouping {
             Grouping::Curly => '{',
         }
     }
+
+    /// Returns the closing character of the given grouping
     pub fn close_char(&self) -> char {
         match self {
             Grouping::Paren => ')',
@@ -335,10 +389,16 @@ impl Grouping {
     }
 }
 
+/// A separator token
 #[derive(Clone, Debug, EnumIter)]
 pub enum Separator {
+    /// A comma `,`
     Comma,
+
+    /// A single newline `\n`
     Newline,
+
+    /// A double newline `\n\n`
     DoubleNewline,
 }
 
@@ -352,34 +412,59 @@ impl Display for Separator {
     }
 }
 
+/// An operator token
 #[derive(Clone, Copy, Debug, EnumIter, PartialEq, Eq)]
 pub enum Operator {
+    /// The dot operator `.`
     Dot,
+    /// The plus operator `+`
     Plus,
+    /// The minus operator `-`
     Minus,
+    /// The times operator `*`
     Times,
+    /// The divide operator `/`
     Divide,
+    /// The modulo operator `%`
     Modulo,
+    /// The array concat operator `++`
     Concat,
+    /// The array repeat operator `**`
     Repeat,
+    /// The and operator `&`
     And,
+    /// The or operator `|`
     Or,
+    /// The not operator `!`
     Not,
+    /// The backslash operator `\`
     Backslash,
+    /// The thin arrow operator `->`
     ThinArrow,
+    /// The fat arrow operator `=>`
     FatArrow,
+    /// The question mark operator `?`
     Question,
+    /// The length operator `#`
     Length,
+    /// The range operator `..`
     Range,
+    /// The double equal sign operator `==`
     DoubleEquals,
+    /// The not equals operator `!=`
     NotEquals,
+    /// The greater than operator `>`
     Greater,
+    /// The less than operator `<`
     Less,
+    /// The greater than or equal to operator `>=`
     GreaterEquals,
+    /// The less than or equal to operator `<=`
     LessEquals,
 }
 
 impl Operator {
+    /// Returns the characters used to define this operator
     pub fn chars(&self) -> OperatorChars {
         match self {
             Operator::Dot => OperatorChars::Single('.'),
@@ -409,9 +494,13 @@ impl Operator {
     }
 }
 
+/// The characters used to specify an operator
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OperatorChars {
+    /// A one-character operator (e.g. `*`)
     Single(char),
+
+    /// A two-character operator (e.g. `*=`)
     Double(char, char),
 }
 
@@ -453,10 +542,18 @@ impl Display for Token {
     }
 }
 
+/// A token with an associated location
 #[derive(Clone, Debug)]
 pub struct LocatedToken {
+    /// The token
     pub token: Token,
+
+    /// The token's line number
     pub line: usize,
+
+    /// The column of the first character of the token
     pub col_start: usize,
+
+    /// The column of the last character of the token
     pub col_end: usize,
 }

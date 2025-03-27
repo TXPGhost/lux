@@ -1,3 +1,5 @@
+//! Compiler for the Lux programming language
+
 #![warn(missing_docs)]
 
 use std::fs::File;

@@ -4,24 +4,34 @@ use crate::lexer::{LocatedToken, Operator};
 
 use lazy_static::lazy_static;
 
-pub mod desugar;
-pub use desugar::*;
-
+/// An AST node, with a value and a source file location
 #[derive(Clone, Debug)]
 pub struct Node<T: Clone + Debug> {
+    /// The value of the AST node
     pub value: T,
+
+    /// The AST node's location
     pub loc: Option<Loc>,
 }
 
+/// A source file location "box" given by a range of lines and columns
 #[derive(Copy, Clone, Debug)]
 pub struct Loc {
+    /// The minimum line number of the box
     pub line_min: usize,
+
+    /// The maximum line number of the box
     pub line_max: usize,
+
+    /// The minimum column number of the box
     pub col_min: usize,
+
+    /// The maximum column number of the box
     pub col_max: usize,
 }
 
 impl Loc {
+    /// Combines two locations into the smallest enclosing box
     pub fn combine(lhs: Option<Self>, rhs: Option<Self>) -> Option<Self> {
         match (lhs, rhs) {
             (Some(lhs), Some(rhs)) => Some(Self {
@@ -36,6 +46,7 @@ impl Loc {
         }
     }
 
+    /// Constructs a box of minimal size surrounding a token
     pub fn from_token(token: &LocatedToken) -> Self {
         Self {
             line_min: token.line,
@@ -46,18 +57,27 @@ impl Loc {
     }
 }
 
+/// A list of AST elements
 #[derive(Clone, Debug)]
 pub struct List<T> {
+    /// The elements of the list
     pub elements: Vec<T>,
 }
 
+/// A member AST node, used within structs and enums
 #[derive(Clone, Debug)]
 pub enum Member {
+    /// An unnamed member, represented just as an expression
     Expr(Node<Expr>),
+
+    /// A named member, represented as an identifier and an expression
     Named(Node<Ident>, Node<Expr>),
+
+    /// A named function member, syntax sugar for a lambda function
     NamedFunc(Node<Ident>, Node<List<Node<Member>>>, Node<Expr>),
 }
 
+/// A generic expression
 #[derive(Clone, Debug)]
 pub enum Expr {
     /// An identifier (e.g. `Vector3` or `x`)
@@ -122,6 +142,7 @@ impl Expr {
     }
 }
 
+/// An identifier
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Ident {
     /// A value identifier written in snake case (e.g. `foo_bar`)
@@ -139,10 +160,12 @@ lazy_static! {
 }
 
 impl Ident {
+    /// The void identifier `_`, which discards its value
     pub fn void() -> Self {
         Self::VIdent(IDENT_VOID.clone())
     }
 
+    /// Returns [true] if this identifier is the void identifier `_`
     pub fn is_void(&self) -> bool {
         match self {
             Ident::VIdent(vident) => vident.as_ref() == "_",
@@ -152,32 +175,52 @@ impl Ident {
     }
 }
 
+/// A binary operation (e.g. `x + y`)
 #[derive(Clone, Debug)]
 pub struct Binop {
+    /// The left-hand-side of the operation
     pub lhs: Box<Node<Expr>>,
+
+    /// The right-hand-side of the operation
     pub rhs: Box<Node<Expr>>,
+
+    /// The operator to use
     pub op: Operator,
 }
 
+/// A unary operation (e.g. `-x`)
 #[derive(Clone, Debug)]
 pub struct Unop {
+    /// The (left-hand-size) expression
     pub expr: Box<Node<Expr>>,
+
+    /// The operator to use
     pub op: Operator,
 }
 
+/// A statement, used within code blocks
 #[derive(Clone, Debug)]
 pub enum Stmt {
+    /// An expression statement
     Expr(Node<Expr>),
+
+    /// A local binding (e.g. `x = 5`)
     Binding(Node<Ident>, Option<Node<Expr>>, Node<Expr>),
 }
 
+/// A field, used to get members of structs and enums
 #[derive(Clone, Debug)]
 pub enum Field {
+    /// An identified field, used to access named members
     Ident(Ident),
+
+    /// A numbered field, used to access unnamed members
     Number(u64),
 }
 
+/// A compiler-intrinsic primitive type
 #[derive(Clone, Debug)]
 pub enum Primitive {
+    /// The unsigned 64-bit integer type
     U64,
 }

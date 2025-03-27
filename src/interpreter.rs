@@ -2,9 +2,16 @@ use std::{collections::HashMap, fmt::Debug};
 
 use crate::ast::*;
 
+/// Interpreter implementation for expressions
 pub mod interpret_expr;
+
+/// Interpreter implementation for lists
 pub mod interpret_list;
+
+/// Interpreter implementation for members
 pub mod interpret_member;
+
+/// Interpreter implementation for statements
 pub mod interpret_stmt;
 
 /// The context for an interpreter
@@ -70,9 +77,8 @@ impl<'a> Context<'a> {
     /// Recursively hoists the given identifier by its index, inserting a leading `^`
     fn hoist(&mut self, ident: Ident, index: usize) {
         let ident = Ident::Hoist(Box::new(ident));
-        match self.associations.insert(ident.clone(), index) {
-            Some(index) => self.hoist(ident, index),
-            None => (),
+        if let Some(index) = self.associations.insert(ident.clone(), index) {
+            self.hoist(ident, index)
         }
     }
 
@@ -82,12 +88,11 @@ impl<'a> Context<'a> {
             return Ok(());
         }
         println!("adding to context {:?} -> {:?}", ident, expr.value);
-        match self
+        if let Some(index) = self
             .associations
             .insert(ident.clone(), self.definitions.len())
         {
-            Some(index) => self.hoist(ident, index),
-            None => (),
+            self.hoist(ident, index)
         };
         self.definitions.push(expr);
         Ok(())
@@ -117,13 +122,15 @@ impl Default for Context<'_> {
             prev_frame: None,
             strategy: InterpretStrategy::Eval,
         };
-        context.unique_add(
-            Ident::TIdent("U64".into()),
-            Node {
-                value: Expr::Primitive(Primitive::U64),
-                loc: None,
-            },
-        );
+        context
+            .unique_add(
+                Ident::TIdent("U64".into()),
+                Node {
+                    value: Expr::Primitive(Primitive::U64),
+                    loc: None,
+                },
+            )
+            .expect("name conflict should not happen");
         context
     }
 }
@@ -141,16 +148,32 @@ pub enum InterpretStrategy {
 /// An error that is encountered while interpreting
 #[derive(Debug)]
 pub enum InterpretError {
+    /// An undefined symbol was encountered
     UndefinedSymbol(Node<Ident>),
+
+    /// An undefined field was encountered
     UndefinedField(Node<Field>),
+
+    /// A symbol was attempted to be defined twice
     SymbolDefinedTwice(Ident),
+
+    /// An illegal binary operation was used
     IllegalBinop(&'static str, Node<Binop>),
+
+    /// A function argument did not match what was expected
     ArgumentMismatch(&'static str, usize, usize),
+
+    /// Tried to access a field of a non-struct value
     IllegalFieldOperation(&'static str, Node<Expr>),
+
+    /// Tried to call a value that is not a function or constructor
     IllegalCallOperation(&'static str, Node<Expr>),
+
+    /// Tried to use the void identifier `_` as an expression
     VoidIsUndefined,
 }
 
+/// Trait for interpreting expressions
 pub trait Interpret {
     /// The output of the interpreter for this type
     type Output;
