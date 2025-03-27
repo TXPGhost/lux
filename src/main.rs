@@ -55,7 +55,7 @@ fn test_file(path: PathBuf) -> Result<Node<List<Node<Member>>>, TestError> {
 }
 
 fn main() {
-    println!("\n{}\n", "RUNNING TEST SUITE...".blue());
+    println!("\n{}\n", "RUNNING TEST SUITE...".blue().bold());
 
     let paths = std::fs::read_dir("tests").unwrap();
     let (mut pass, mut fail, mut total) = (0, 0, 0);
@@ -63,7 +63,7 @@ fn main() {
         let path = path.unwrap().path();
         println!(
             "{} {}",
-            "TEST".cyan(),
+            "TEST".cyan().bold(),
             format!("\"{}\"", path.display()).purple()
         );
 

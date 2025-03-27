@@ -286,7 +286,10 @@ impl Node<Expr> {
                 Some(Token::Number(n)) => {
                     let loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    Ok(Expr::Number(n.parse().map_err(ParseError::NumberParseError)?).loc(loc))
+                    Ok(Expr::Primitive(Primitive::U64Val(
+                        n.parse().map_err(ParseError::NumberParseError)?,
+                    ))
+                    .loc(loc))
                 }
                 _ => Err(ParseError::UnexpectedToken(
                     "while parsing expr",

@@ -99,9 +99,6 @@ pub enum Expr {
     /// An identifier (e.g. `Vector3` or `x`)
     Ident(Node<Ident>),
 
-    /// A number (e.g. `42`)
-    Number(u64),
-
     /// A binary operation (e.g. `x + y`)
     Binop(Node<Binop>),
 
@@ -239,7 +236,19 @@ pub enum Field {
 #[derive(Clone, Debug)]
 pub enum Primitive {
     /// The unsigned 64-bit integer type
-    U64,
+    U64Ty,
+
+    /// An unsigned 64-bit integer value
+    U64Val(u64),
+
+    /// The boolean type
+    Bool,
+
+    /// The true value
+    True,
+
+    /// The false value
+    False,
 
     /// A helper to debug-print values
     DebugPrint,

@@ -158,7 +158,7 @@ impl Default for Context<'_> {
         context
             .add_static(
                 Ident::TIdent("U64".into()),
-                Expr::Primitive(Primitive::U64).unloc(),
+                Expr::Primitive(Primitive::U64Ty).unloc(),
             )
             .expect("name conflict should not happen");
         context

@@ -54,12 +54,6 @@ impl<'a> Parser<'a> {
         self.tokens.get(self.idx)
     }
 
-    fn peek(&self) -> Option<&'a Token> {
-        self.tokens
-            .get(self.idx + 1)
-            .map(|located_token| &located_token.token)
-    }
-
     fn next(&mut self) -> Result<Option<&'a LocatedToken>, ParseError> {
         let res = self.tokens.get(self.idx);
         self.eat();

@@ -1,4 +1,4 @@
-use crate::{interpreter::*, lexer::Operator};
+use crate::{interpreter::*, lexer::Operator, type_checker::TypeCompare};
 
 impl Interpret for Node<Expr> {
     type Output = Node<Expr>;
@@ -11,7 +11,7 @@ impl Interpret for Node<Expr> {
                     InterpretStrategy::Eval => Ok(value.clone()),
                     InterpretStrategy::Simplify => Ok(ty.clone()),
                 },
-                Ok(ContextDefinition::Argument(ty)) => Ok(Expr::Ident(ident).node(loc)),
+                Ok(ContextDefinition::Argument(_)) => Ok(Expr::Ident(ident).node(loc)),
                 // allow recursive definitions in some cases
                 Err(InterpretError::UndefinedSymbol(_)) => match context.strategy() {
                     InterpretStrategy::Eval => Err(InterpretError::UndefinedSymbol(ident)),
@@ -19,18 +19,22 @@ impl Interpret for Node<Expr> {
                 },
                 Err(e) => Err(e),
             },
-            Expr::Number(_) => Ok(self),
+            Expr::Primitive(_) => Ok(self),
             Expr::Binop(binop) => {
                 let lhs = binop.val.lhs.interp(context)?;
                 let rhs = binop.val.rhs.interp(context)?;
 
-                if let (Expr::Number(x), Expr::Number(y)) = (&lhs.val, &rhs.val) {
+                if let (
+                    Expr::Primitive(Primitive::U64Val(x)),
+                    Expr::Primitive(Primitive::U64Val(y)),
+                ) = (&lhs.val, &rhs.val)
+                {
                     return match binop.val.op {
-                        Operator::Plus => Ok(Expr::Number(x + y).node(loc)),
-                        Operator::Minus => Ok(Expr::Number(x - y).node(loc)),
-                        Operator::Times => Ok(Expr::Number(x * y).node(loc)),
-                        Operator::Divide => Ok(Expr::Number(x / y).node(loc)),
-                        Operator::Modulo => Ok(Expr::Number(x % y).node(loc)),
+                        Operator::Plus => Ok(Expr::Primitive(Primitive::U64Val(x + y)).node(loc)),
+                        Operator::Minus => Ok(Expr::Primitive(Primitive::U64Val(x - y)).node(loc)),
+                        Operator::Times => Ok(Expr::Primitive(Primitive::U64Val(x * y)).node(loc)),
+                        Operator::Divide => Ok(Expr::Primitive(Primitive::U64Val(x / y)).node(loc)),
+                        Operator::Modulo => Ok(Expr::Primitive(Primitive::U64Val(x % y)).node(loc)),
                         Operator::DoubleEquals => todo!("comparison"),
                         Operator::NotEquals => todo!("comparison"),
                         Operator::Greater => todo!("comparison"),
@@ -57,7 +61,6 @@ impl Interpret for Node<Expr> {
                             InterpretStrategy::Simplify => Ok(Expr::Binop(binop).node(loc)),
                         }
                     }
-                    _ => todo!("{:?}", binop.val.op),
                 }
             }
             Expr::Func(args, body) => {
@@ -248,7 +251,6 @@ impl Interpret for Node<Expr> {
             }
             Expr::Array(_) => todo!("list"),
             Expr::ArrayType(_, _) => todo!("list type"),
-            Expr::Primitive(primitive) => Ok(Expr::Primitive(primitive).node(loc)),
         }
     }
 }
