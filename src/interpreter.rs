@@ -14,10 +14,19 @@ pub mod interpret_member;
 /// Interpreter implementation for statements
 pub mod interpret_stmt;
 
+/// A context definition
+pub enum ContextDefinition {
+    /// A static definition, such as a struct member
+    Static(Node<Expr>),
+
+    /// A local definition with a type and a value, arising from a block statement
+    Local(Node<Expr>, Node<Expr>),
+}
+
 /// The context for an interpreter
 pub struct Context<'a> {
     /// A list of context definitions
-    definitions: Vec<Node<Expr>>,
+    definitions: Vec<ContextDefinition>,
 
     /// A map from identifiers to context definitions (by index)
     associations: HashMap<Ident, usize>,
@@ -30,8 +39,11 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    /// Attempts to look up an identifier within the local (highest level) frame
-    pub fn local_lookup(&self, ident: &Node<Ident>) -> Result<&Node<Expr>, InterpretError> {
+    /// Attempts to look up an identifier within the top (highest level) frame
+    pub fn toplevel_lookup(
+        &self,
+        ident: &Node<Ident>,
+    ) -> Result<&ContextDefinition, InterpretError> {
         if ident.value.is_void() {
             return Err(InterpretError::VoidIsUndefined);
         }
@@ -47,9 +59,9 @@ impl<'a> Context<'a> {
     }
 
     /// Attempts to look up an identifier within all frames of this context
-    pub fn lookup(&self, ident: &Node<Ident>) -> Result<&Node<Expr>, InterpretError> {
-        match self.local_lookup(ident) {
-            Ok(expr) => Ok(expr),
+    pub fn lookup(&self, ident: &Node<Ident>) -> Result<&ContextDefinition, InterpretError> {
+        match self.toplevel_lookup(ident) {
+            Ok(def) => Ok(def),
             Err(InterpretError::UndefinedSymbol(symbol)) => match &self.prev_frame {
                 Some(frame) => frame.lookup(ident),
                 None => Err(InterpretError::UndefinedSymbol(symbol)),
@@ -58,8 +70,8 @@ impl<'a> Context<'a> {
         }
     }
 
-    /// Registers a new identifier with the context, returning an error if it already exists
-    pub fn unique_add(&mut self, ident: Ident, expr: Node<Expr>) -> Result<(), InterpretError> {
+    /// Registers a static identifier with the context, returning an error if it already exists
+    pub fn add_static(&mut self, ident: Ident, expr: Node<Expr>) -> Result<(), InterpretError> {
         if ident.is_void() {
             return Ok(());
         }
@@ -70,7 +82,7 @@ impl<'a> Context<'a> {
         else {
             return Err(InterpretError::SymbolDefinedTwice(ident));
         };
-        self.definitions.push(expr);
+        self.definitions.push(ContextDefinition::Static(expr));
         Ok(())
     }
 
@@ -82,19 +94,27 @@ impl<'a> Context<'a> {
         }
     }
 
-    /// Registers a new identifier with the context, shadowing an existing identifier if it already exists
-    pub fn shadow_add(&mut self, ident: Ident, expr: Node<Expr>) -> Result<(), InterpretError> {
+    /// Registers a local identifier with the context, shadowing an existing identifier if it already exists
+    pub fn add_local(
+        &mut self,
+        ident: Ident,
+        ty: Node<Expr>,
+        value: Node<Expr>,
+    ) -> Result<(), InterpretError> {
         if ident.is_void() {
             return Ok(());
         }
-        println!("adding to context {:?} -> {:?}", ident, expr.value);
+        println!(
+            "adding to context {:?} -> {:?}: {:?}",
+            ident, ty.value, value.value
+        );
         if let Some(index) = self
             .associations
             .insert(ident.clone(), self.definitions.len())
         {
             self.hoist(ident, index)
         };
-        self.definitions.push(expr);
+        self.definitions.push(ContextDefinition::Local(ty, value));
         Ok(())
     }
 
@@ -123,7 +143,7 @@ impl Default for Context<'_> {
             strategy: InterpretStrategy::Eval,
         };
         context
-            .unique_add(
+            .add_static(
                 Ident::TIdent("U64".into()),
                 Node {
                     value: Expr::Primitive(Primitive::U64),

@@ -12,7 +12,7 @@ impl Interpret for Node<Member> {
             }),
             Member::Named(ident, expr) => {
                 let expr = expr.interp(&mut context.frame(InterpretStrategy::Eval))?;
-                context.unique_add(ident.value.clone(), expr.clone())?;
+                context.add_static(ident.value.clone(), expr.clone())?;
                 Ok(Node {
                     value: Member::Named(ident, expr),
                     loc,
@@ -26,7 +26,7 @@ impl Interpret for Node<Member> {
                     ),
                     loc,
                 };
-                context.unique_add(ident.value.clone(), expr.clone())?;
+                context.add_static(ident.value.clone(), expr.clone())?;
                 Ok(Node {
                     value: Member::Named(ident, expr),
                     loc,

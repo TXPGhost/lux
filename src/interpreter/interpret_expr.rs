@@ -6,7 +6,11 @@ impl Interpret for Node<Expr> {
         let loc = self.loc;
         match self.value {
             Expr::Ident(ident) => match context.lookup(&ident) {
-                Ok(expr) => Ok(expr.clone()),
+                Ok(ContextDefinition::Static(expr)) => Ok(expr.clone()),
+                Ok(ContextDefinition::Local(ty, value)) => match context.strategy() {
+                    InterpretStrategy::Eval => Ok(value.clone()),
+                    InterpretStrategy::Simplify => Ok(ty.clone()),
+                },
                 Err(InterpretError::UndefinedSymbol(_)) => match context.strategy() {
                     InterpretStrategy::Eval => Err(InterpretError::UndefinedSymbol(ident)),
                     InterpretStrategy::Simplify => Ok(Node {

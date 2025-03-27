@@ -11,21 +11,16 @@ impl Interpret for Node<Stmt> {
                 loc,
             }),
             Stmt::Binding(ident, ty, value) => {
+                let value = value.interp(context)?;
                 let ty = match ty {
                     Some(ty) => Some(ty.interp(context)?),
                     None => None,
                 };
-                let value = value.interp(context)?;
-                match context.strategy() {
-                    InterpretStrategy::Eval => {
-                        context.shadow_add(ident.value.clone(), value.clone())?
-                    }
-                    InterpretStrategy::Simplify => {
-                        if let Some(ty) = &ty {
-                            context.shadow_add(ident.value.clone(), ty.clone())?;
-                        }
-                    }
-                }
+                context.add_local(
+                    ident.value.clone(),
+                    ty.clone().unwrap_or_else(|| value.clone()),
+                    value.clone(),
+                )?;
                 Ok(Node {
                     value: Stmt::Binding(ident, ty, value),
                     loc: None,
