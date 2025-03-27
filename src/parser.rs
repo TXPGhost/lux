@@ -30,7 +30,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    /// Constructs a new parser from the given [tokens]
+    /// Constructs a new parser from the given tokens
     pub fn new(tokens: &'a [LocatedToken]) -> Self {
         Self { tokens, idx: 0 }
     }
