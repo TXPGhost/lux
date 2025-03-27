@@ -21,6 +21,9 @@ pub enum ContextDefinition {
 
     /// A local definition with a type and a value, arising from a block statement
     Local(Node<Expr>, Node<Expr>),
+
+    /// A function parameter definition with a specificed type
+    Argument(Node<Expr>),
 }
 
 /// The context for an interpreter
@@ -110,6 +113,21 @@ impl<'a> Context<'a> {
             self.hoist(ident, index)
         };
         self.definitions.push(ContextDefinition::Local(ty, value));
+        Ok(())
+    }
+
+    /// Registers a function argument with the context, shadowing an existing identifier if it already exists
+    pub fn add_argument(&mut self, ident: Ident, ty: Node<Expr>) -> Result<(), InterpretError> {
+        if ident.is_void() {
+            return Ok(());
+        }
+        if let Some(index) = self
+            .associations
+            .insert(ident.clone(), self.definitions.len())
+        {
+            self.hoist(ident, index)
+        };
+        self.definitions.push(ContextDefinition::Argument(ty));
         Ok(())
     }
 
