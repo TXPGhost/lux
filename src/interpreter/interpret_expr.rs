@@ -232,14 +232,17 @@ impl Interpret for Node<Expr> {
                 let mut context = context.frame(context.strategy());
                 let mut value = Expr::unit().node(loc);
                 let len = stmts.val.elements.len();
-                let new_stmts = Vec::with_capacity(len);
+                let mut new_stmts = Vec::with_capacity(len);
                 for (i, stmt) in stmts.val.elements.into_iter().enumerate() {
                     let stmt = stmt.interp(&mut context)?;
-                    match stmt.val {
-                        Stmt::Expr(expr) if i == len - 1 => value = expr,
+                    match &stmt.val {
+                        Stmt::Expr(expr) if i == len - 1 => {
+                            value = expr.clone();
+                        }
                         Stmt::Expr(_) => (),
                         Stmt::Binding(_, _, _) => (),
                     }
+                    new_stmts.push(stmt);
                 }
 
                 match context.strategy() {

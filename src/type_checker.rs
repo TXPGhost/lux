@@ -4,6 +4,9 @@ use crate::ast::*;
 
 /// A trait used to compare two types
 pub trait TypeCompare {
+    /// Returns [true] if this is a type (i.e. does not have _exactly_ one possible value)
+    fn is_type(&self) -> bool;
+
     /// Returns [true] if this type is equivalent to `rhs`
     fn is_equivalent_to(&self, rhs: &Self) -> bool;
 
@@ -20,6 +23,14 @@ pub trait TypeCompare {
 }
 
 impl TypeCompare for Expr {
+    fn is_type(&self) -> bool {
+        match self {
+            Expr::Ident(_) => todo!(),
+            Expr::Primitive(prim) => prim.is_type(),
+            _ => todo!(),
+        }
+    }
+
     fn is_equivalent_to(&self, rhs: &Self) -> bool {
         match (self, rhs) {
             (Expr::Ident(lhs), Expr::Ident(rhs)) => lhs.val == rhs.val,
@@ -66,6 +77,15 @@ impl TypeCompare for Expr {
 }
 
 impl TypeCompare for Field {
+    fn is_type(&self) -> bool {
+        match self {
+            Field::Ident(Ident::VIdent(_)) => false,
+            Field::Ident(Ident::TIdent(_)) => true,
+            Field::Ident(Ident::Hoist(ident)) => Field::Ident(*ident.clone()).is_type(),
+            Field::Number(_) => false,
+        }
+    }
+
     fn is_equivalent_to(&self, rhs: &Self) -> bool {
         match (self, rhs) {
             (Field::Ident(lhs), Field::Ident(rhs)) => lhs == rhs,
@@ -80,6 +100,10 @@ impl TypeCompare for Field {
 }
 
 impl TypeCompare for Member {
+    fn is_type(&self) -> bool {
+        todo!()
+    }
+
     fn is_equivalent_to(&self, rhs: &Self) -> bool {
         match (self, rhs) {
             (Member::NamedFunc(_, _, _), _) => unreachable!(),
@@ -106,6 +130,19 @@ impl TypeCompare for Member {
 }
 
 impl TypeCompare for Primitive {
+    fn is_type(&self) -> bool {
+        match self {
+            Primitive::U64Ty => true,
+            Primitive::U64Val(_) => false,
+            Primitive::CharTy => true,
+            Primitive::CharVal(_) => false,
+            Primitive::Bool => true,
+            Primitive::True => false,
+            Primitive::False => false,
+            Primitive::DebugPrint => false,
+        }
+    }
+
     fn is_equivalent_to(&self, rhs: &Self) -> bool {
         match (self, rhs) {
             (Primitive::U64Ty, Primitive::U64Ty) => true,

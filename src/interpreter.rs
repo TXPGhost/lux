@@ -15,6 +15,7 @@ pub mod interpret_member;
 pub mod interpret_stmt;
 
 /// A context definition
+#[derive(Clone, Debug)]
 pub enum ContextDefinition {
     /// A static definition, such as a struct member
     Static(Node<Expr>),
@@ -223,6 +224,9 @@ pub enum InterpretError {
 
     /// An unnamed member was expected, but a name was provided
     UnexpectedMemberName(&'static str, Node<Ident>),
+
+    /// Tried to evaluate a type in the "eval" stage of the interpreter
+    CannotEvaluateType(&'static str, Node<Expr>),
 }
 
 /// Trait for interpreting expressions
