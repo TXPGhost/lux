@@ -155,18 +155,22 @@ impl Default for Context<'_> {
             prev_frame: None,
             strategy: InterpretStrategy::Eval,
         };
-        context
-            .add_static(
-                Ident::TIdent("U64".into()),
-                Expr::Primitive(Primitive::U64Ty).unloc(),
-            )
-            .expect("name conflict should not happen");
-        context
-            .add_static(
-                Ident::VIdent("debug_print".into()),
-                Expr::Primitive(Primitive::DebugPrint).unloc(),
-            )
-            .expect("name conflict should not happen");
+
+        let mut add_prim = |ident, primitive| {
+            context
+                .add_static(ident, Expr::Primitive(primitive).unloc())
+                .expect("name conflict should not happen");
+        };
+
+        add_prim(Ident::TIdent("U64".into()), Primitive::U64Ty);
+        add_prim(Ident::TIdent("Char".into()), Primitive::CharTy);
+        add_prim(Ident::TIdent("Bool".into()), Primitive::Bool);
+
+        add_prim(Ident::VIdent("true".into()), Primitive::True);
+        add_prim(Ident::VIdent("false".into()), Primitive::False);
+
+        add_prim(Ident::VIdent("debug_print".into()), Primitive::DebugPrint);
+
         context
     }
 }

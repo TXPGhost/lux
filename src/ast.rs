@@ -241,6 +241,12 @@ pub enum Primitive {
     /// An unsigned 64-bit integer value
     U64Val(u64),
 
+    /// The ascii character type
+    CharTy,
+
+    /// An ascii character value
+    CharVal(u8),
+
     /// The boolean type
     Bool,
 

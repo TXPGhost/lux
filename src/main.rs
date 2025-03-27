@@ -4,7 +4,7 @@
 
 use std::{fs::File, path::PathBuf};
 
-use ast::{List, Member, Node};
+use ast::{Expr, Ident, List, Member, Node, NodeExt};
 use interpreter::{Context, Interpret, InterpretError};
 use lexer::{LexError, Lexer};
 use parser::{ParseError, Parser};
@@ -39,19 +39,36 @@ enum TestError {
     /// A parsing error
     Parse(ParseError),
 
-    /// An interpreter error
-    Interpret(InterpretError),
+    /// An interpreter error at the simplify stage
+    Simplify(InterpretError),
+
+    /// An interpreter error at the evaluation stage of the `main` function
+    Eval(InterpretError),
 }
 
-fn test_file(path: PathBuf) -> Result<Node<List<Node<Member>>>, TestError> {
+fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
     let mut file = File::open(path).map_err(TestError::Io)?;
     let lexer = Lexer::new_from_file(&mut file).map_err(TestError::Io)?;
     let tokens = lexer.tokenize().map_err(TestError::Lex)?;
     let mut parser = Parser::new(&tokens);
     let ast = parser.parse().map_err(TestError::Parse)?;
     let mut context = Context::default();
-    let answer = ast.interp(&mut context).map_err(TestError::Interpret)?;
-    Ok(answer)
+    let members = ast.interp(&mut context).map_err(TestError::Simplify)?;
+    for member in members.val.elements {
+        if let Member::Named(ident, _) = member.val {
+            let main = Ident::VIdent("main".into());
+            if ident.val == main {
+                let main_call = Expr::Call(
+                    Box::new(Expr::Ident(main.unloc()).unloc()),
+                    List::new([]).unloc(),
+                )
+                .unloc();
+                let result = main_call.interp(&mut context).map_err(TestError::Eval)?;
+                return Ok(Some(result));
+            }
+        }
+    }
+    Ok(None)
 }
 
 fn main() {
@@ -68,7 +85,11 @@ fn main() {
         );
 
         match test_file(path) {
-            Ok(_) => {
+            Ok(result) => {
+                if let Some(result) = result {
+                    println!("\t==> {:?}", result.val);
+                }
+
                 pass += 1;
                 total += 1;
                 println!("\t{}", "PASS".green());
@@ -80,8 +101,11 @@ fn main() {
                     TestError::Io(e) => println!("\t{:<15}: {:?}", "FAIL_IO".red(), e),
                     TestError::Lex(e) => println!("\t{:<15}: {:?}", "FAIL_LEX".red(), e),
                     TestError::Parse(e) => println!("\t{:<15}: {:?}", "FAIL_PARSE".red(), e),
-                    TestError::Interpret(e) => {
-                        println!("\t{:<15}: {:?}", "FAIL_INTERPRET".red(), e)
+                    TestError::Simplify(e) => {
+                        println!("\t{:<15}: {:?}", "FAIL_SIMPLIFY".red(), e)
+                    }
+                    TestError::Eval(e) => {
+                        println!("\t{:<15}: {:?}", "FAIL_EVAL".red(), e)
                     }
                 }
             }

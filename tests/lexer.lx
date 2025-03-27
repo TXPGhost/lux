@@ -1,4 +1,4 @@
-LexerError = <
+LexerError: <
     unexpected_char: Char
     illegal_identifier: String
     illegal_type_identifier: String
@@ -8,7 +8,7 @@ LexerError = <
     illegal_number: String
 >
 
-Lexer = (
+Lexer: (
     source: Option(String)
     tokens: []Token
     cur_tok: String

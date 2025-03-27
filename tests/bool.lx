@@ -1,0 +1,4 @@
+main(): {
+	x: Bool = true
+	y: Bool = false
+}

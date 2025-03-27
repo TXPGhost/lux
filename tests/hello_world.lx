@@ -1,0 +1,3 @@
+main(): {
+	debug_print("Hello, world!")
+}

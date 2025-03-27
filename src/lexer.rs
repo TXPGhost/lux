@@ -78,10 +78,83 @@ impl Lexer {
         }
     }
 
+    /// Attempts to tokenize a string literal. Returns `true` if the character `c` was part of a
+    /// string literal.
+    fn tokenize_string(&mut self, c: char) -> Result<bool, LexError> {
+        if self.tok_kind != TokKind::String && self.tok_kind != TokKind::Unknown {
+            return Ok(false);
+        }
+        if c == '"' {
+            // begin or end string literal
+            if self.tok_kind == TokKind::String {
+                // end string
+                self.tok_kind = TokKind::Unknown;
+                let len = self.cur_tok.len();
+                let mut tok_string = String::new();
+                std::mem::swap(&mut self.cur_tok, &mut tok_string);
+                self.tokens.push(LocatedToken {
+                    token: Token::String(tok_string),
+                    line: self.line,
+                    col_start: self.col - len,
+                    col_end: self.col - 1,
+                });
+                self.tok_kind = TokKind::Unknown;
+                Ok(true)
+            } else {
+                // begin string
+                self.tok_kind = TokKind::String;
+                Ok(true)
+            }
+        } else if self.tok_kind == TokKind::String {
+            self.cur_tok.push(c);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Attempts to tokenize a character literal. Returns `true` if the character `c` was part of a
+    /// character literal.
+    fn tokenize_character(&mut self, c: char) -> Result<bool, LexError> {
+        if self.tok_kind != TokKind::Character && self.tok_kind != TokKind::Unknown {
+            return Ok(false);
+        }
+        if c == '\'' {
+            // begin or end characer literal
+            if self.tok_kind == TokKind::Character {
+                // end character
+                self.tok_kind = TokKind::Unknown;
+                let len = self.cur_tok.len();
+                let mut tok_string = String::new();
+                std::mem::swap(&mut self.cur_tok, &mut tok_string);
+                self.tokens.push(LocatedToken {
+                    token: Token::Character(tok_string.chars().nth(0).unwrap()),
+                    line: self.line,
+                    col_start: self.col - len,
+                    col_end: self.col - 1,
+                });
+                self.tok_kind = TokKind::Unknown;
+                Ok(true)
+            } else {
+                // begin character
+                self.tok_kind = TokKind::Character;
+                Ok(true)
+            }
+        } else if self.tok_kind == TokKind::Character {
+            self.cur_tok.push(c);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
     /// Attempts to tokenize an identifier. Returns `true` if the character `c` was part of an
     /// identifier.
     fn tokenize_ident(&mut self, c: char) -> Result<bool, LexError> {
-        if self.tok_kind == TokKind::Number {
+        if self.tok_kind != TokKind::VIdent
+            && self.tok_kind != TokKind::TIdent
+            && self.tok_kind != TokKind::Unknown
+        {
             return Ok(false);
         }
         if c.is_ascii_alphabetic() || c == '_' {
@@ -133,7 +206,7 @@ impl Lexer {
 
     /// Attempts to tokenize a number. Returns `true` if the character `c` was part of a number.
     fn tokenize_number(&mut self, c: char) -> Result<bool, LexError> {
-        if self.tok_kind == TokKind::VIdent || self.tok_kind == TokKind::TIdent {
+        if self.tok_kind != TokKind::Number && self.tok_kind != TokKind::Unknown {
             return Ok(false);
         }
         if c.is_numeric() || c == '_' || (c == '.' && self.tok_kind == TokKind::Number) {
@@ -169,12 +242,18 @@ impl Lexer {
 
     /// Attempts to tokenize the given character and two-character lookahead.
     pub fn tokenize_char(&mut self, c: [char; 3]) -> Result<(), LexError> {
+        if self.tokenize_string(c[0])? {
+            return Ok(());
+        }
+        if self.tokenize_character(c[0])? {
+            return Ok(());
+        }
         if self.tokenize_ident(c[0])? {
             return Ok(());
-        };
+        }
         if self.tokenize_number(c[0])? {
             return Ok(());
-        };
+        }
         let mut push_token = |token, len| {
             self.tokens.push(LocatedToken {
                 token,
@@ -519,6 +598,8 @@ enum TokKind {
     TIdent,
     VIdent,
     Number,
+    String,
+    Character,
 }
 
 impl Display for Token {
