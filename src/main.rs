@@ -9,6 +9,8 @@ use interpreter::{Context, Interpret, InterpretError};
 use lexer::{LexError, Lexer};
 use parser::{ParseError, Parser};
 
+use colored::Colorize;
+
 /// The abstract syntax tree
 pub mod ast;
 
@@ -53,28 +55,39 @@ fn test_file(path: PathBuf) -> Result<Node<List<Node<Member>>>, TestError> {
 }
 
 fn main() {
+    println!("\n{}\n", "RUNNING TEST SUITE...".blue());
+
     let paths = std::fs::read_dir("tests").unwrap();
     let (mut pass, mut fail, mut total) = (0, 0, 0);
     for path in paths {
         let path = path.unwrap().path();
-        print!("RUNNING TEST {:.<35}", path.display());
+        println!(
+            "{} {}",
+            "TEST".cyan(),
+            format!("\"{}\"", path.display()).purple()
+        );
+
         match test_file(path) {
             Ok(_) => {
                 pass += 1;
                 total += 1;
-                println!("PASS");
+                println!("\t{}", "PASS".green());
             }
             Err(e) => {
                 fail += 1;
                 total += 1;
                 match e {
-                    TestError::Io(e) => println!("{:<15}: {:?}", "FAIL_IO", e),
-                    TestError::Lex(e) => println!("{:<15}: {:?}", "FAIL_LEX", e),
-                    TestError::Parse(e) => println!("{:<15}: {:?}", "FAIL_PARSE", e),
-                    TestError::Interpret(e) => println!("{:<15}: {:?}", "FAIL_INTERPRET", e),
+                    TestError::Io(e) => println!("\t{:<15}: {:?}", "FAIL_IO".red(), e),
+                    TestError::Lex(e) => println!("\t{:<15}: {:?}", "FAIL_LEX".red(), e),
+                    TestError::Parse(e) => println!("\t{:<15}: {:?}", "FAIL_PARSE".red(), e),
+                    TestError::Interpret(e) => {
+                        println!("\t{:<15}: {:?}", "FAIL_INTERPRET".red(), e)
+                    }
                 }
             }
         }
+
+        println!();
     }
 
     println!();

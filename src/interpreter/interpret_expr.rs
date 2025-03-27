@@ -132,7 +132,12 @@ impl Interpret for Node<Expr> {
                 let args = args.interp(context)?;
                 match &func.val {
                     Expr::Primitive(Primitive::DebugPrint) => {
-                        dbg!(&args);
+                        for arg in args.val.elements {
+                            match arg.loc {
+                                Some(loc) => println!("\t[{}] {:?}", loc.line_min, arg.val),
+                                None => println!("\t[?] {:?}", arg.val),
+                            }
+                        }
                         Ok(Expr::unit().unloc())
                     }
                     Expr::Func(fargs, body) => {
