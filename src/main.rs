@@ -21,6 +21,9 @@ pub mod lexer;
 /// Produces an abstract syntax tree by parsing the lexer output
 pub mod parser;
 
+/// Checks whether values are subtypes/supertypes of one another
+pub mod type_checker;
+
 /// An error that can occur during testing
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -51,15 +54,40 @@ fn test_file(path: PathBuf) -> Result<Node<List<Node<Member>>>, TestError> {
 
 fn main() {
     let paths = std::fs::read_dir("tests").unwrap();
+    let (mut pass, mut fail, mut total) = (0, 0, 0);
     for path in paths {
         let path = path.unwrap().path();
-        print!("RUNNING TEST {} ... ", path.display());
+        print!("RUNNING TEST {:.<35}", path.display());
         match test_file(path) {
-            Ok(_) => println!("PASS"),
-            Err(TestError::Io(e)) => println!("FAIL_IO: {:?}", e),
-            Err(TestError::Lex(e)) => println!("FAIL_LEX: {:?}", e),
-            Err(TestError::Parse(e)) => println!("FAIL_PARSE: {:?}", e),
-            Err(TestError::Interpret(e)) => println!("FAIL_INTERPRET: {:?}", e),
+            Ok(_) => {
+                pass += 1;
+                total += 1;
+                println!("PASS");
+            }
+            Err(e) => {
+                fail += 1;
+                total += 1;
+                match e {
+                    TestError::Io(e) => println!("{:<15}: {:?}", "FAIL_IO", e),
+                    TestError::Lex(e) => println!("{:<15}: {:?}", "FAIL_LEX", e),
+                    TestError::Parse(e) => println!("{:<15}: {:?}", "FAIL_PARSE", e),
+                    TestError::Interpret(e) => println!("{:<15}: {:?}", "FAIL_INTERPRET", e),
+                }
+            }
         }
     }
+
+    println!();
+    println!(
+        "PASS: {}/{} ({:.1}%)",
+        pass,
+        total,
+        (pass as f32 / total as f32) * 100.0
+    );
+    println!(
+        "FAIL: {}/{} ({:.1}%)",
+        fail,
+        total,
+        (fail as f32 / total as f32) * 100.0
+    );
 }

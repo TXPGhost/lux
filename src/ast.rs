@@ -240,6 +240,9 @@ pub enum Field {
 pub enum Primitive {
     /// The unsigned 64-bit integer type
     U64,
+
+    /// A helper to debug-print values
+    DebugPrint,
 }
 
 /// A helper trait for constructing [Node]s

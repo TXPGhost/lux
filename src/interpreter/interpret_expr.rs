@@ -11,7 +11,7 @@ impl Interpret for Node<Expr> {
                     InterpretStrategy::Eval => Ok(value.clone()),
                     InterpretStrategy::Simplify => Ok(ty.clone()),
                 },
-                Ok(ContextDefinition::Argument(ty)) => Ok(ty.clone()),
+                Ok(ContextDefinition::Argument(ty)) => Ok(Expr::Ident(ident).node(loc)),
                 // allow recursive definitions in some cases
                 Err(InterpretError::UndefinedSymbol(_)) => match context.strategy() {
                     InterpretStrategy::Eval => Err(InterpretError::UndefinedSymbol(ident)),
@@ -38,7 +38,7 @@ impl Interpret for Node<Expr> {
                         Operator::GreaterEquals => todo!("comparison"),
                         Operator::LessEquals => todo!("comparison"),
                         _ => Err(InterpretError::IllegalBinop(
-                            "illegal binary operation",
+                            "illegal binary operation between numbers",
                             Binop::new(lhs, binop.val.op, rhs).node(loc),
                         )),
                     };
@@ -47,10 +47,39 @@ impl Interpret for Node<Expr> {
                 match binop.val.op {
                     Operator::ThinArrow => todo!("pipe"),
                     Operator::FatArrow => todo!("lambda"),
-                    _ => todo!(),
+                    _ => {
+                        let binop = Binop::new(lhs, binop.val.op, rhs).node(loc);
+                        match context.strategy() {
+                            InterpretStrategy::Eval => Err(InterpretError::IllegalBinop(
+                                "illegal binary operation",
+                                binop,
+                            )),
+                            InterpretStrategy::Simplify => Ok(Expr::Binop(binop).node(loc)),
+                        }
+                    }
+                    _ => todo!("{:?}", binop.val.op),
                 }
             }
-            Expr::Func(_, _) => todo!("func"),
+            Expr::Func(args, body) => {
+                let mut context = context.frame(InterpretStrategy::Simplify);
+
+                let args_loc = args.loc;
+                let mut new_args = Vec::new();
+                for arg in args.val.elements {
+                    let arg = arg.interp(&mut context)?;
+                    match &arg.val {
+                        Member::Expr(_) => (),
+                        Member::Named(ident, expr) => {
+                            context.add_argument(ident.val.clone(), expr.clone())?;
+                        }
+                        Member::NamedFunc(_, _, _) => unreachable!(),
+                    }
+                    new_args.push(arg);
+                }
+                let new_args = List::new(new_args).node(args_loc);
+
+                Ok(Expr::Func(new_args, Box::new(body.interp(&mut context)?)).node(loc))
+            }
             Expr::Index(_, _) => todo!("index"),
             Expr::Field(expr, field) => {
                 let expr = expr.interp(context)?;
@@ -102,15 +131,84 @@ impl Interpret for Node<Expr> {
                 let func = func.interp(context)?;
                 let args = args.interp(context)?;
                 match &func.val {
-                    Expr::Func(fargs, _) => {
+                    Expr::Primitive(Primitive::DebugPrint) => {
+                        dbg!(&args);
+                        Ok(Expr::unit().unloc())
+                    }
+                    Expr::Func(fargs, body) => {
+                        // make sure the number of arguments matches
                         if fargs.val.elements.len() != args.val.elements.len() {
-                            return Err(InterpretError::ArgumentMismatch(
+                            return Err(InterpretError::IncorrectNumberOfArguments(
                                 "wrong number of arguments passed to function (expected, actual)",
                                 fargs.val.elements.len(),
                                 args.val.elements.len(),
                             ));
                         }
-                        Err(InterpretError::Unimplemented("todo call"))
+
+                        // check that each argument name and type matches
+                        // TODO: this should be done by the `is_subtype_of` function in the future
+                        for i in 0..args.val.elements.len() {
+                            let arg = &args.val.elements[i];
+                            let farg = &fargs.val.elements[i];
+                            match (&arg.val, &farg.val) {
+                                (_, Member::NamedFunc(_, _, _)) => unreachable!(),
+                                (Member::NamedFunc(_, _, _), _) => unreachable!(),
+                                (Member::Named(ident, expr), Member::Named(fident, fexpr)) => {
+                                    if ident.val == fident.val {
+                                        if !expr.val.is_subtype_of(&fexpr.val) {
+                                            return Err(InterpretError::NotASubtype(
+                                                "function argument must be a subtype",
+                                                expr.clone(),
+                                                fexpr.clone(),
+                                            ));
+                                        }
+                                    } else {
+                                        return Err(InterpretError::ArgumentNameMismatch(
+                                            "argument name does not match",
+                                            fident.val.clone(),
+                                            ident.clone(),
+                                        ));
+                                    }
+                                }
+                                (
+                                    Member::Expr(expr),
+                                    Member::Expr(fexpr) | Member::Named(_, fexpr),
+                                ) => {
+                                    if !expr.val.is_subtype_of(&fexpr.val) {
+                                        return Err(InterpretError::NotASubtype(
+                                            "function argument must be a subtype",
+                                            expr.clone(),
+                                            fexpr.clone(),
+                                        ));
+                                    }
+                                }
+                                (Member::Named(ident, _), Member::Expr(_)) => {
+                                    return Err(InterpretError::UnexpectedMemberName(
+                                        "an unnamed member was expected, but a name was provided",
+                                        ident.clone(),
+                                    ))
+                                }
+                            }
+                        }
+
+                        // assign each argument a value
+                        let mut context = context.frame(InterpretStrategy::Eval);
+                        for i in 0..args.val.elements.len() {
+                            let arg = &args.val.elements[i];
+                            let farg = &fargs.val.elements[i];
+
+                            if let Member::Named(ident, ty) = &farg.val {
+                                let value = match &arg.val {
+                                    Member::Expr(expr) => expr,
+                                    Member::Named(_, expr) => expr,
+                                    Member::NamedFunc(_, _, _) => unreachable!(),
+                                };
+                                context.add_local(ident.val.clone(), ty.clone(), value.clone())?;
+                            }
+                        }
+
+                        let result = body.clone().interp(&mut context)?;
+                        Ok(result)
                     }
                     Expr::Struct(_) => todo!("constructor"),
                     Expr::Ident(_) if context.strategy() == InterpretStrategy::Simplify => {

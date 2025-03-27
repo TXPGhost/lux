@@ -1,5 +1,6 @@
 test_fn(x: U64): (fst: x + 1, snd: x + 2)
 
 main(): {
-	test_fn(test_fn(42).fst).snd
+	result = test_fn(test_fn(42).fst).snd
+	debug_print(result)
 }

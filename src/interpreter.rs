@@ -162,6 +162,12 @@ impl Default for Context<'_> {
             )
             .expect("name conflict should not happen");
         context
+            .add_static(
+                Ident::VIdent("debug_print".into()),
+                Expr::Primitive(Primitive::DebugPrint).unloc(),
+            )
+            .expect("name conflict should not happen");
+        context
     }
 }
 
@@ -190,8 +196,11 @@ pub enum InterpretError {
     /// An illegal binary operation was used
     IllegalBinop(&'static str, Node<Binop>),
 
-    /// A function argument did not match what was expected
-    ArgumentMismatch(&'static str, usize, usize),
+    /// A function received the wrong number of arguments (expected, actual)
+    IncorrectNumberOfArguments(&'static str, usize, usize),
+
+    /// A function received an argument of the wrong name (expected, actual)
+    ArgumentNameMismatch(&'static str, Ident, Node<Ident>),
 
     /// Tried to access a field of a non-struct value
     IllegalFieldOperation(&'static str, Node<Expr>),
@@ -204,6 +213,12 @@ pub enum InterpretError {
 
     /// An interpreter feature is not yet implemented
     Unimplemented(&'static str),
+
+    /// The provided type is not a subtype of what was expected
+    NotASubtype(&'static str, Node<Expr>, Node<Expr>),
+
+    /// An unnamed member was expected, but a name was provided
+    UnexpectedMemberName(&'static str, Node<Ident>),
 }
 
 /// Trait for interpreting expressions

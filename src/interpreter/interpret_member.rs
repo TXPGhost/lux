@@ -8,16 +8,13 @@ impl Interpret for Node<Member> {
         match self.val {
             Member::Expr(expr) => Ok(Member::Expr(expr.interp(context)?).node(loc)),
             Member::Named(ident, expr) => {
-                let expr = expr.interp(&mut context.frame(InterpretStrategy::Eval))?;
+                let expr = expr.interp(&mut context.frame(context.strategy()))?;
                 context.add_static(ident.val.clone(), expr.clone())?;
                 Ok(Member::Named(ident, expr).node(loc))
             }
             Member::NamedFunc(ident, args, expr) => {
-                let expr = Expr::Func(
-                    args,
-                    Box::new(expr.interp(&mut context.frame(InterpretStrategy::Simplify))?),
-                )
-                .node(loc);
+                let expr = Expr::Func(args, Box::new(expr)).node(loc);
+                let expr = expr.interp(context)?;
                 context.add_static(ident.val.clone(), expr.clone())?;
                 Ok(Member::Named(ident, expr).node(loc))
             }
