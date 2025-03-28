@@ -1,0 +1,14 @@
+main(): {
+	x = 1
+	x = 2
+	x = 4
+	x = 8
+
+	answer = x + ^x + ^^x + ^^^x
+	answer = x * ^x * ^^x * ^^^x
+	answer = x - ^x - ^^x - ^^^x
+
+	debug_print(^^answer)
+	debug_print(^answer)
+	debug_print(answer)
+}

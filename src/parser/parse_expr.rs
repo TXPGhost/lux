@@ -13,6 +13,23 @@ impl Parse for Node<Expr> {
 }
 
 impl Node<Expr> {
+    fn parse_unop(
+        parser: &mut super::Parser<'_>,
+        prec: usize,
+        operators: &[Operator],
+    ) -> Result<Self, super::ParseError> {
+        if let Some(Token::Operator(operator)) = parser.cur() {
+            for op in operators {
+                if op == operator {
+                    let expr = Node::<Expr>::parse_prec(parser, prec + 1)?;
+                    let loc = expr.loc;
+                    return Ok(Expr::Unop(Unop::new(*op, expr).node(loc)).node(loc));
+                }
+            }
+        }
+        Node::<Expr>::parse_prec(parser, prec + 1)
+    }
+
     fn parse_binop_next_prec(
         parser: &mut super::Parser<'_>,
         prec: usize,
@@ -26,8 +43,7 @@ impl Node<Expr> {
                     parser.eat();
                     let rhs = Node::<Expr>::parse_prec(parser, next_prec)?;
                     let loc = Loc::combine(expr.loc, rhs.loc);
-                    let expr = Expr::Binop(Binop::new(expr, *op, rhs).node(loc));
-                    return Ok(expr.node(loc));
+                    return Ok(Expr::Binop(Binop::new(expr, *op, rhs).node(loc)).node(loc));
                 }
             }
         }
@@ -61,7 +77,7 @@ impl Node<Expr> {
             for op in operators {
                 if op == operator {
                     parser.eat();
-                    let rhs = Node::<Expr>::parse_prec(parser, prec)?;
+                    let rhs = Node::<Expr>::parse_prec(parser, prec + 1)?;
                     let loc = Loc::combine(expr.loc, rhs.loc);
                     expr = Expr::Binop(Binop::new(expr, *op, rhs).node(loc)).node(loc);
                     proceed = true;
@@ -129,7 +145,7 @@ impl Node<Expr> {
             // pipe operator (`->`)
             7 => Self::parse_binop_left_assoc(parser, prec, &[Operator::ThinArrow]),
             // unary operators (`-`, `#`, etc.)
-            8 => Self::parse_binop_right_assoc(
+            8 => Self::parse_unop(
                 parser,
                 prec,
                 &[
@@ -278,7 +294,7 @@ impl Node<Expr> {
             },
             // identifiers and literals
             11 => match parser.cur() {
-                Some(Token::VIdent(_) | Token::TIdent(_)) => {
+                Some(Token::VIdent(_) | Token::TIdent(_) | Token::Operator(Operator::Caret)) => {
                     let ident = Node::<Ident>::parse(parser)?;
                     let loc = ident.loc;
                     Ok(Expr::Ident(ident).node(loc))

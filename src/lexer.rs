@@ -540,6 +540,8 @@ pub enum Operator {
     GreaterEquals,
     /// The less than or equal to operator `<=`
     LessEquals,
+    /// The caret operator `^`
+    Caret,
 }
 
 impl Operator {
@@ -569,6 +571,7 @@ impl Operator {
             Operator::Less => OperatorChars::Single('<'),
             Operator::GreaterEquals => OperatorChars::Double('>', '='),
             Operator::LessEquals => OperatorChars::Double('<', '='),
+            Operator::Caret => OperatorChars::Single('^'),
         }
     }
 }

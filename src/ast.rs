@@ -99,6 +99,9 @@ pub enum Expr {
     /// An identifier (e.g. `Vector3` or `x`)
     Ident(Node<Ident>),
 
+    /// A unary operation (e.g. `-x`)
+    Unop(Node<Unop>),
+
     /// A binary operation (e.g. `x + y`)
     Binop(Node<Binop>),
 
@@ -178,6 +181,26 @@ impl Ident {
     }
 }
 
+/// A unary operation (e.g. `-x`)
+#[derive(Clone, Debug)]
+pub struct Unop {
+    /// The (right-hand-side) of the operation
+    pub expr: Box<Node<Expr>>,
+
+    /// The operator to use
+    pub op: Operator,
+}
+
+impl Unop {
+    /// Constructs a new [Unop] with the given [Operator] and expression
+    pub fn new(op: Operator, expr: Node<Expr>) -> Self {
+        Self {
+            op,
+            expr: Box::new(expr),
+        }
+    }
+}
+
 /// A binary operation (e.g. `x + y`)
 #[derive(Clone, Debug)]
 pub struct Binop {
@@ -200,16 +223,6 @@ impl Binop {
             rhs: Box::new(rhs),
         }
     }
-}
-
-/// A unary operation (e.g. `-x`)
-#[derive(Clone, Debug)]
-pub struct Unop {
-    /// The (left-hand-size) expression
-    pub expr: Box<Node<Expr>>,
-
-    /// The operator to use
-    pub op: Operator,
 }
 
 /// A statement, used within code blocks

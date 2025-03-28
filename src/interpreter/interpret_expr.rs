@@ -20,6 +20,7 @@ impl Interpret for Node<Expr> {
                 Err(e) => Err(e),
             },
             Expr::Primitive(_) => Ok(self),
+            Expr::Unop(_) => todo!(),
             Expr::Binop(binop) => {
                 let lhs = binop.val.lhs.interp(context)?;
                 let rhs = binop.val.rhs.interp(context)?;

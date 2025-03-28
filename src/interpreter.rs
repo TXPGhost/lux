@@ -198,6 +198,9 @@ pub enum InterpretError {
     /// A symbol was attempted to be defined twice
     SymbolDefinedTwice(Ident),
 
+    /// An illegal unary operation was used
+    IllegalUnop(&'static str, Node<Unop>),
+
     /// An illegal binary operation was used
     IllegalBinop(&'static str, Node<Binop>),
 
