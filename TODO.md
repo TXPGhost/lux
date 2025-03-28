@@ -5,3 +5,5 @@
    identifiers. Assume the types are "never" types for type checking purposes.
 3. Make separate AST, one which has types and one which has only values
 4. Context identifiers need to be aware of their scope, to prevent clashes.
+5. Context needs to store type _and_ value.
+6. Should definitely introduce more IR layers.
