@@ -18,7 +18,7 @@ impl Interpret for Node<Stmt> {
                     ty.clone().unwrap_or_else(|| value.clone()),
                     value.clone(),
                 )?;
-                Ok(Stmt::Binding(ident, ty, value).unloc())
+                Ok(Stmt::Binding(ident, ty, value).node(loc))
             }
         }
     }

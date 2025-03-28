@@ -259,8 +259,14 @@ pub enum InterpretError {
     /// Tried to evaluate a type in the "eval" stage of the interpreter
     CannotEvaluateType(&'static str, Node<Expr>),
 
-    /// A user assertion failed
-    AssertionFailure(&'static str, Node<Expr>, Node<Expr>),
+    /// A user assertion failed at the given line number
+    AssertionFailure(
+        &'static str,
+        InterpretStrategy,
+        usize,
+        Node<Expr>,
+        Node<Expr>,
+    ),
 }
 
 /// Trait for interpreting expressions

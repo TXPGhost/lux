@@ -145,7 +145,7 @@ impl Interpret for Node<Expr> {
                                         None => println!("\t[?] {:?}", arg.val),
                                     }
                                 }
-                                Ok(Expr::unit().unloc())
+                                Ok(Expr::unit().node(loc))
                             }
                             InterpretStrategy::Simplify => Ok(Expr::Call(
                                 Box::new(Expr::Primitive(Primitive::DebugPrint).node(func_loc)),
@@ -205,7 +205,7 @@ impl Interpret for Node<Expr> {
                         }
                         match (assertion_success, context.strategy()) {
                             (Some(true) | None, InterpretStrategy::Eval) => {
-                                Ok(Expr::unit().unloc())
+                                Ok(Expr::unit().node(loc))
                             }
                             (Some(true) | None, InterpretStrategy::Simplify) => Ok(Expr::Call(
                                 Box::new(
@@ -216,6 +216,8 @@ impl Interpret for Node<Expr> {
                             .node(loc)),
                             (Some(false), _) => Err(InterpretError::AssertionFailure(
                                 "values not equal",
+                                context.strategy(),
+                                loc.map(|loc| loc.line_min).unwrap_or_default(),
                                 lhs.clone(),
                                 rhs.clone(),
                             )),

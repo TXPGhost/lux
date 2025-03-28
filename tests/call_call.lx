@@ -2,5 +2,5 @@ test_fn(x: U64): x + 2
 
 main(): {
 	result = test_fn(test_fn(42))
-	assert_eq(result, 44)
+	assert_eq(result, 46)
 }

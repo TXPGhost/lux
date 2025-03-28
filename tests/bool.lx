@@ -3,4 +3,14 @@ main(): {
 	y: Bool = false
 	assert_eq(x, true)
 	assert_eq(y, false)
+
+	assert_sub(x, Bool)
+	assert_sub(y, Bool)
+
+	assert_sub(true, Bool)
+	assert_sub(false, Bool)
+
+	assert_eq(Bool, Bool)
+	assert_sub(Bool, Bool)
+	assert_super(Bool, Bool)
 }
