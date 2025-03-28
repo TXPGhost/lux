@@ -87,7 +87,7 @@ impl Interpret for Node<Expr> {
             Expr::Index(_, _) => todo!("index"),
             Expr::Field(expr, field) => {
                 let expr = expr.interp(context)?;
-                let Expr::Struct(members) = expr.val else {
+                let Expr::Struct(fields) = expr.val else {
                     return Err(InterpretError::IllegalFieldOperation(
                         "cannot access field of a non-struct value",
                         expr,
@@ -95,7 +95,7 @@ impl Interpret for Node<Expr> {
                 };
                 match &field.val {
                     Field::Ident(ident) => {
-                        for member in members.val.elements {
+                        for member in fields.val.elements {
                             match member.val {
                                 Member::Expr(_) => (),
                                 Member::Named(member_ident, expr) => {
@@ -111,10 +111,10 @@ impl Interpret for Node<Expr> {
                     }
                     Field::Number(index) => {
                         let index = *index as usize;
-                        if members.val.elements.len() >= index {
+                        if fields.val.elements.len() >= index {
                             Err(InterpretError::UndefinedField(field))
                         } else {
-                            match &members.val.elements[index].val {
+                            match &fields.val.elements[index].val {
                                 Member::Expr(expr) => Ok(expr.clone()),
                                 Member::Named(_, expr) => Ok(expr.clone()),
                                 Member::NamedFunc(_, _, _) => unreachable!(),
@@ -123,9 +123,9 @@ impl Interpret for Node<Expr> {
                     }
                 }
             }
-            Expr::Struct(members) => {
-                let loc = members.loc;
-                Ok(Expr::Struct(members.interp(context)?).node(loc))
+            Expr::Struct(fields) => {
+                let loc = fields.loc;
+                Ok(Expr::Struct(fields.interp(context)?).node(loc))
             }
             Expr::Enum(variants) => {
                 let loc = variants.loc;
@@ -164,7 +164,7 @@ impl Interpret for Node<Expr> {
                                 (Member::NamedFunc(_, _, _), _) => unreachable!(),
                                 (Member::Named(ident, expr), Member::Named(fident, fexpr)) => {
                                     if ident.val == fident.val {
-                                        if !expr.val.is_subtype_of(&fexpr.val) {
+                                        if !expr.val.is_subtype_of(&fexpr.val, context)? {
                                             return Err(InterpretError::NotASubtype(
                                                 "function argument must be a subtype",
                                                 expr.clone(),
@@ -183,7 +183,7 @@ impl Interpret for Node<Expr> {
                                     Member::Expr(expr),
                                     Member::Expr(fexpr) | Member::Named(_, fexpr),
                                 ) => {
-                                    if !expr.val.is_subtype_of(&fexpr.val) {
+                                    if !expr.val.is_subtype_of(&fexpr.val, context)? {
                                         return Err(InterpretError::NotASubtype(
                                             "function argument must be a subtype",
                                             expr.clone(),
@@ -219,7 +219,90 @@ impl Interpret for Node<Expr> {
                         let result = body.clone().interp(&mut context)?;
                         Ok(result)
                     }
-                    Expr::Struct(_) => todo!("constructor"),
+                    Expr::Struct(fields) => {
+                        // TODO: partial constructors
+                        // TODO: out of order named constructors?
+
+                        let fields_loc = fields.loc;
+
+                        // make sure the number of arguments matches
+                        if fields.val.elements.len() != args.val.elements.len() {
+                            return Err(InterpretError::IncorrectNumberOfArguments(
+                                "wrong number of arguments passed to constructor (expected, actual)",
+                                fields.val.elements.len(),
+                                args.val.elements.len(),
+                            ));
+                        }
+
+                        // check that each field name and type matches,
+                        // TODO: this should be done by the `is_subtype_of` function in the future
+                        for i in 0..args.val.elements.len() {
+                            let arg = &args.val.elements[i];
+                            let field = &fields.val.elements[i];
+                            match (&arg.val, &field.val) {
+                                (_, Member::NamedFunc(_, _, _)) => unreachable!(),
+                                (Member::NamedFunc(_, _, _), _) => unreachable!(),
+                                (Member::Named(ident, expr), Member::Named(fident, fty)) => {
+                                    if ident.val == fident.val {
+                                        if !expr.val.is_subtype_of(&fty.val, context)? {
+                                            return Err(InterpretError::NotASubtype(
+                                                "constructor field must be a subtype",
+                                                expr.clone(),
+                                                fty.clone(),
+                                            ));
+                                        }
+                                    } else {
+                                        return Err(InterpretError::ArgumentNameMismatch(
+                                            "field name does not match",
+                                            fident.val.clone(),
+                                            ident.clone(),
+                                        ));
+                                    }
+                                }
+                                (
+                                    Member::Expr(expr),
+                                    Member::Expr(fexpr) | Member::Named(_, fexpr),
+                                ) => {
+                                    if !expr.val.is_subtype_of(&fexpr.val, context)? {
+                                        return Err(InterpretError::NotASubtype(
+                                            "constructor field must be a subtype",
+                                            expr.clone(),
+                                            fexpr.clone(),
+                                        ));
+                                    }
+                                }
+                                (Member::Named(ident, _), Member::Expr(_)) => {
+                                    return Err(InterpretError::UnexpectedMemberName(
+                                        "an unnamed member was expected, but a name was provided",
+                                        ident.clone(),
+                                    ))
+                                }
+                            }
+                        }
+
+                        // construct the struct
+                        let mut constructed_fields = Vec::with_capacity(fields.val.elements.len());
+                        for i in 0..args.val.elements.len() {
+                            let arg = &args.val.elements[i];
+                            let field = &fields.val.elements[i];
+                            let loc = arg.loc;
+
+                            match (&arg.val, &field.val) {
+                                (_, Member::NamedFunc(_, _, _)) => unreachable!(),
+                                (Member::NamedFunc(_, _, _), _) => unreachable!(),
+                                (Member::Expr(expr) | Member::Named(_, expr), Member::Expr(_)) => {
+                                    constructed_fields.push(Member::Expr(expr.clone()).node(loc))
+                                }
+                                (
+                                    Member::Expr(expr) | Member::Named(_, expr),
+                                    Member::Named(ident, _),
+                                ) => constructed_fields
+                                    .push(Member::Named(ident.clone(), expr.clone()).node(loc)),
+                            }
+                        }
+
+                        Ok(Expr::Struct(List::new(constructed_fields).node(fields_loc)).node(loc))
+                    }
                     Expr::Ident(_) if context.strategy() == InterpretStrategy::Simplify => {
                         Ok(Expr::Call(Box::new(func), args).node(loc))
                     }

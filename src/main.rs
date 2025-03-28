@@ -2,7 +2,10 @@
 
 #![warn(missing_docs)]
 
-use std::{fs::File, path::PathBuf};
+use std::{
+    fs::{DirEntry, File},
+    path::PathBuf,
+};
 
 use ast::{Expr, Ident, List, Member, Node, NodeExt};
 use interpreter::{Context, Interpret, InterpretError};
@@ -76,8 +79,10 @@ fn main() {
 
     let paths = std::fs::read_dir("tests").unwrap();
     let (mut pass, mut fail, mut total) = (0, 0, 0);
+    let mut paths: Vec<DirEntry> = paths.into_iter().map(|path| path.unwrap()).collect();
+    paths.sort_by_key(|a| a.path());
     for path in paths {
-        let path = path.unwrap().path();
+        let path = path.path();
         println!(
             "{} {}",
             "TEST".cyan().bold(),

@@ -1,0 +1,10 @@
+Vector3: (x: U64, y: U64, z: U64)
+
+vector3_new(x: U64, y: U64, z: U64): Vector3(x, y, z)
+
+main(): {
+	v = vector3_new(1, 2, 3)
+	debug_print(v.x)
+	debug_print(v.y)
+	debug_print(v.z)
+}

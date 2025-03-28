@@ -27,6 +27,17 @@ pub enum ContextDefinition {
     Argument(Node<Expr>),
 }
 
+impl ContextDefinition {
+    /// Returns the type of this definition
+    pub fn ty(&self) -> &Node<Expr> {
+        match self {
+            ContextDefinition::Static(ty) => ty,
+            ContextDefinition::Local(ty, _) => ty,
+            ContextDefinition::Argument(ty) => ty,
+        }
+    }
+}
+
 /// The context for an interpreter
 pub struct Context<'a> {
     /// A list of context definitions

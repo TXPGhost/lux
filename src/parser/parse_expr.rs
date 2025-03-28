@@ -99,8 +99,8 @@ impl Node<Expr> {
                 let loc = lambda.loc;
                 if let Expr::Binop(binop) = &lambda.val {
                     if let Operator::FatArrow = &binop.val.op {
-                        if let Expr::Struct(members) = &binop.val.lhs.val {
-                            return Ok(Expr::Func(members.clone(), binop.val.rhs.clone()).node(loc));
+                        if let Expr::Struct(fields) = &binop.val.lhs.val {
+                            return Ok(Expr::Func(fields.clone(), binop.val.rhs.clone()).node(loc));
                         }
                     }
                 }
@@ -208,7 +208,7 @@ impl Node<Expr> {
                 Some(Token::Open(Grouping::Paren)) => {
                     let open_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    let members = Node::<List<Node<Member>>>::parse(parser)?;
+                    let fields = Node::<List<Node<Member>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
                         return Err(ParseError::ExpectedToken(
                             "while parsing struct",
@@ -219,8 +219,8 @@ impl Node<Expr> {
                     let close_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
                     let loc =
-                        Loc::combine(members.loc, Loc::combine(Some(open_loc), Some(close_loc)));
-                    Ok(Expr::Struct(members).node(loc))
+                        Loc::combine(fields.loc, Loc::combine(Some(open_loc), Some(close_loc)));
+                    Ok(Expr::Struct(fields).node(loc))
                 }
                 Some(Token::Open(Grouping::Angle)) => {
                     let open_loc = Loc::from_token(parser.cur_loc().unwrap());
