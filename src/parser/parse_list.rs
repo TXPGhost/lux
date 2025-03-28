@@ -4,7 +4,7 @@ use crate::{ast::*, lexer::Token};
 
 use super::Parse;
 
-impl<T: Clone + Debug> Parse for Node<List<Node<T>>>
+impl<T: Clone + Debug> Parse for Node<Vec<Node<T>>>
 where
     Node<T>: Parse,
 {
@@ -25,6 +25,6 @@ where
             .iter()
             .fold(None, |acc, element| Loc::combine(acc, element.loc));
 
-        Ok(List::new(list).node(loc))
+        Ok(list.node(loc))
     }
 }

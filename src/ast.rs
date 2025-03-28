@@ -57,29 +57,6 @@ impl Loc {
     }
 }
 
-/// A list of AST elements
-#[derive(Clone, Debug)]
-pub struct List<T> {
-    /// The elements of the list
-    pub elements: Vec<T>,
-}
-
-impl<T> List<T> {
-    /// Constructs a new [List<T>] from the given elements
-    pub fn new(elements: impl Into<Vec<T>>) -> Self {
-        Self {
-            elements: elements.into(),
-        }
-    }
-
-    /// Constructs an empty [List<T>]
-    pub fn empty() -> Self {
-        Self {
-            elements: Vec::new(),
-        }
-    }
-}
-
 /// A member AST node, used within structs and enums
 #[derive(Clone, Debug)]
 pub enum Member {
@@ -90,7 +67,7 @@ pub enum Member {
     Named(Node<Ident>, Node<Expr>),
 
     /// A named function member, syntax sugar for a lambda function
-    NamedFunc(Node<Ident>, Node<List<Node<Member>>>, Node<Expr>),
+    NamedFunc(Node<Ident>, Node<Vec<Node<Member>>>, Node<Expr>),
 }
 
 /// A generic expression
@@ -112,22 +89,22 @@ pub enum Expr {
     Field(Box<Node<Expr>>, Node<Field>),
 
     /// A struct (e.g. `('x', 'y', 'z')` or `(x: 1.0, y: 2.0)`)
-    Struct(Node<List<Node<Member>>>),
+    Struct(Node<Vec<Node<Member>>>),
 
     /// An enum (e.g. `<VariantA, VariantB>` or `<some: I32, None: ()>`)
-    Enum(Node<List<Node<Member>>>),
+    Enum(Node<Vec<Node<Member>>>),
 
     /// A function call or a constructor (e.g. `func(x, y)` or `Vector3(1.0, 2.0, 3.0)`)
-    Call(Box<Node<Expr>>, Node<List<Node<Member>>>),
+    Call(Box<Node<Expr>>, Node<Vec<Node<Member>>>),
 
     /// A function declaration (e.g. `(x: I32) => x * 2`)
-    Func(Node<List<Node<Member>>>, Box<Node<Expr>>),
+    Func(Node<Vec<Node<Member>>>, Box<Node<Expr>>),
 
     /// A code block (e.g. `{ x = 10, y = 20, x + y }`)
-    Block(Node<List<Node<Stmt>>>),
+    Block(Node<Vec<Node<Stmt>>>),
 
     /// An array (e.g. `[1, 2, 3, 4, 5]`)
-    Array(Node<List<Node<Expr>>>),
+    Array(Node<Vec<Node<Expr>>>),
 
     /// An array type (e.g. `[4]I32` or `[]String`)
     ArrayType(Option<Box<Node<Expr>>>, Box<Node<Expr>>),
@@ -139,12 +116,12 @@ pub enum Expr {
 impl Expr {
     /// Generates a unit expression `()`
     pub fn unit() -> Self {
-        Expr::Struct(List::empty().unloc())
+        Expr::Struct(Vec::new().unloc())
     }
 
     /// Generates a never expression `<>`
     pub fn never() -> Self {
-        Expr::Enum(List::empty().unloc())
+        Expr::Enum(Vec::new().unloc())
     }
 }
 

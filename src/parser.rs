@@ -36,8 +36,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Parses the tokens into a member list, used to define a file
-    pub fn parse(&mut self) -> Result<Node<List<Node<Member>>>, ParseError> {
-        Node::<List<Node<Member>>>::parse(self)
+    pub fn parse(&mut self) -> Result<Node<Vec<Node<Member>>>, ParseError> {
+        Node::<Vec<Node<Member>>>::parse(self)
     }
 
     fn eat(&mut self) {

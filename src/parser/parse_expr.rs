@@ -170,7 +170,7 @@ impl Node<Expr> {
                         }
                         Some(Token::Open(Grouping::Paren)) => {
                             parser.eat();
-                            let args = Node::<List<Node<Member>>>::parse(parser)?;
+                            let args = Node::<Vec<Node<Member>>>::parse(parser)?;
                             let loc = Loc::combine(expr.loc, args.loc);
                             expr = Expr::Call(Box::new(expr), args).node(loc);
                             if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
@@ -208,7 +208,7 @@ impl Node<Expr> {
                 Some(Token::Open(Grouping::Paren)) => {
                     let open_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    let fields = Node::<List<Node<Member>>>::parse(parser)?;
+                    let fields = Node::<Vec<Node<Member>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Paren))) {
                         return Err(ParseError::ExpectedToken(
                             "while parsing struct",
@@ -225,7 +225,7 @@ impl Node<Expr> {
                 Some(Token::Open(Grouping::Angle)) => {
                     let open_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    let variants = Node::<List<Node<Member>>>::parse(parser)?;
+                    let variants = Node::<Vec<Node<Member>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Angle))) {
                         return Err(ParseError::ExpectedToken(
                             "while parsing enum",
@@ -242,7 +242,7 @@ impl Node<Expr> {
                 Some(Token::Open(Grouping::Curly)) => {
                     parser.eat();
                     let open_loc = Loc::from_token(parser.cur_loc().unwrap());
-                    let stmts = Node::<List<Node<Stmt>>>::parse(parser)?;
+                    let stmts = Node::<Vec<Node<Stmt>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Curly))) {
                         return Err(ParseError::ExpectedToken(
                             "while parsing block",
@@ -259,7 +259,7 @@ impl Node<Expr> {
                 Some(Token::Open(Grouping::Bracket)) => {
                     let open_loc = Loc::from_token(parser.cur_loc().unwrap());
                     parser.eat();
-                    let mut elements = Node::<List<Node<Expr>>>::parse(parser)?;
+                    let mut elements = Node::<Vec<Node<Expr>>>::parse(parser)?;
                     if !matches!(parser.cur(), Some(Token::Close(Grouping::Bracket))) {
                         return Err(ParseError::ExpectedToken(
                             "while parsing list",
@@ -277,10 +277,10 @@ impl Node<Expr> {
                     ) {
                         let ty = Node::<Expr>::parse(parser)?;
                         let loc = Loc::combine(loc, ty.loc);
-                        match elements.val.elements.len() {
+                        match elements.val.len() {
                             0 => Ok(Expr::ArrayType(None, Box::new(ty)).node(loc)),
                             1 => Ok(Expr::ArrayType(
-                                Some(Box::new(elements.val.elements.pop().unwrap())),
+                                Some(Box::new(elements.val.pop().unwrap())),
                                 Box::new(ty),
                             )
                             .node(loc)),

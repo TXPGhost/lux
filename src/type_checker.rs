@@ -64,14 +64,11 @@ impl TypeCompare for Expr {
                     && lstruct.val.is_equivalent_to(&rstruct.val, context)?)
             }
             (Expr::Struct(lhs) | Expr::Enum(lhs), Expr::Struct(rhs) | Expr::Enum(rhs)) => {
-                if lhs.val.elements.len() != rhs.val.elements.len() {
+                if lhs.val.len() != rhs.val.len() {
                     return Ok(false);
                 }
-                for i in 0..lhs.val.elements.len() {
-                    if !&lhs.val.elements[i]
-                        .val
-                        .is_equivalent_to(&rhs.val.elements[i].val, context)?
-                    {
+                for i in 0..lhs.val.len() {
+                    if !&lhs.val[i].val.is_equivalent_to(&rhs.val[i].val, context)? {
                         return Ok(false);
                     }
                 }

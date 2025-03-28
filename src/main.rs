@@ -7,7 +7,7 @@ use std::{
     path::PathBuf,
 };
 
-use ast::{Expr, Ident, List, Member, Node, NodeExt};
+use ast::{Expr, Ident, Member, Node, NodeExt};
 use interpreter::{Context, Interpret, InterpretError, InterpretStrategy};
 use lexer::{LexError, Lexer};
 use parser::{ParseError, Parser};
@@ -57,14 +57,14 @@ fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
     let ast = parser.parse().map_err(TestError::Parse)?;
     let mut context = Context::default();
     let members = ast.interp(&mut context).map_err(TestError::Simplify)?;
-    for member in members.val.elements {
+    for member in members.val {
         if let Member::Named(ident, _) = member.val {
             let main = Ident::VIdent("main".into());
             if ident.val == main {
                 let mut context = context.frame(InterpretStrategy::Eval);
                 let main_call = Expr::Call(
                     Box::new(Expr::Ident(main.unloc()).unloc()),
-                    List::new([]).unloc(),
+                    Vec::new().unloc(),
                 )
                 .unloc();
                 let result = main_call.interp(&mut context).map_err(TestError::Eval)?;

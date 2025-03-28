@@ -69,7 +69,7 @@ impl Interpret for Node<Expr> {
 
                 let args_loc = args.loc;
                 let mut new_args = Vec::new();
-                for arg in args.val.elements {
+                for arg in args.val {
                     let arg = arg.interp(&mut context)?;
                     match &arg.val {
                         Member::Expr(_) => (),
@@ -80,7 +80,7 @@ impl Interpret for Node<Expr> {
                     }
                     new_args.push(arg);
                 }
-                let new_args = List::new(new_args).node(args_loc);
+                let new_args = new_args.node(args_loc);
 
                 Ok(Expr::Func(new_args, Box::new(body.interp(&mut context)?)).node(loc))
             }
@@ -95,7 +95,7 @@ impl Interpret for Node<Expr> {
                 };
                 match &field.val {
                     Field::Ident(ident) => {
-                        for member in fields.val.elements {
+                        for member in fields.val {
                             match member.val {
                                 Member::Expr(_) => (),
                                 Member::Named(member_ident, expr) => {
@@ -111,10 +111,10 @@ impl Interpret for Node<Expr> {
                     }
                     Field::Number(index) => {
                         let index = *index as usize;
-                        if fields.val.elements.len() >= index {
+                        if fields.val.len() >= index {
                             Err(InterpretError::UndefinedField(field))
                         } else {
-                            match &fields.val.elements[index].val {
+                            match &fields.val[index].val {
                                 Member::Expr(expr) => Ok(expr.clone()),
                                 Member::Named(_, expr) => Ok(expr.clone()),
                                 Member::NamedFunc(_, _, _) => unreachable!(),
@@ -139,7 +139,7 @@ impl Interpret for Node<Expr> {
                         let func_loc = func.loc;
                         match context.strategy() {
                             InterpretStrategy::Eval => {
-                                for arg in args.val.elements {
+                                for arg in args.val {
                                     match arg.loc {
                                         Some(loc) => println!("\t[{}] {:?}", loc.line_min, arg.val),
                                         None => println!("\t[?] {:?}", arg.val),
@@ -156,15 +156,15 @@ impl Interpret for Node<Expr> {
                     }
                     Expr::Primitive(Primitive::Assert(assertion)) => {
                         let func_loc = func.loc;
-                        if args.val.elements.len() != 2 {
+                        if args.val.len() != 2 {
                             return Err(InterpretError::IncorrectNumberOfArguments(
                                 "wrong number of arguments passed to assert (expected 2)",
                                 2,
-                                args.val.elements.len(),
+                                args.val.len(),
                             ));
                         }
-                        let lhs = &args.val.elements[0];
-                        let rhs = &args.val.elements[1];
+                        let lhs = &args.val[0];
+                        let rhs = &args.val[1];
                         let (lhs, rhs) = match (&lhs.val, &rhs.val) {
                             (Member::Expr(lhs), Member::Expr(rhs)) => (lhs, rhs),
                             (Member::Named(ident, _), _) => {
@@ -225,19 +225,19 @@ impl Interpret for Node<Expr> {
                     }
                     Expr::Func(fargs, body) => {
                         // make sure the number of arguments matches
-                        if fargs.val.elements.len() != args.val.elements.len() {
+                        if fargs.val.len() != args.val.len() {
                             return Err(InterpretError::IncorrectNumberOfArguments(
                                 "wrong number of arguments passed to function (expected, actual)",
-                                fargs.val.elements.len(),
-                                args.val.elements.len(),
+                                fargs.val.len(),
+                                args.val.len(),
                             ));
                         }
 
                         // check that each argument name and type matches
                         // TODO: this should be done by the `is_subtype_of` function in the future
-                        for i in 0..args.val.elements.len() {
-                            let arg = &args.val.elements[i];
-                            let farg = &fargs.val.elements[i];
+                        for i in 0..args.val.len() {
+                            let arg = &args.val[i];
+                            let farg = &fargs.val[i];
                             match (&arg.val, &farg.val) {
                                 (_, Member::NamedFunc(_, _, _)) => unreachable!(),
                                 (Member::NamedFunc(_, _, _), _) => unreachable!(),
@@ -281,9 +281,9 @@ impl Interpret for Node<Expr> {
 
                         // assign each argument a value
                         let mut context = context.frame(InterpretStrategy::Eval);
-                        for i in 0..args.val.elements.len() {
-                            let arg = &args.val.elements[i];
-                            let farg = &fargs.val.elements[i];
+                        for i in 0..args.val.len() {
+                            let arg = &args.val[i];
+                            let farg = &fargs.val[i];
 
                             if let Member::Named(ident, ty) = &farg.val {
                                 let value = match &arg.val {
@@ -305,19 +305,19 @@ impl Interpret for Node<Expr> {
                         let fields_loc = fields.loc;
 
                         // make sure the number of arguments matches
-                        if fields.val.elements.len() != args.val.elements.len() {
+                        if fields.val.len() != args.val.len() {
                             return Err(InterpretError::IncorrectNumberOfArguments(
                                 "wrong number of arguments passed to constructor (expected, actual)",
-                                fields.val.elements.len(),
-                                args.val.elements.len(),
+                                fields.val.len(),
+                                args.val.len(),
                             ));
                         }
 
                         // check that each field name and type matches,
                         // TODO: this should be done by the `is_subtype_of` function in the future
-                        for i in 0..args.val.elements.len() {
-                            let arg = &args.val.elements[i];
-                            let field = &fields.val.elements[i];
+                        for i in 0..args.val.len() {
+                            let arg = &args.val[i];
+                            let field = &fields.val[i];
                             match (&arg.val, &field.val) {
                                 (_, Member::NamedFunc(_, _, _)) => unreachable!(),
                                 (Member::NamedFunc(_, _, _), _) => unreachable!(),
@@ -360,10 +360,10 @@ impl Interpret for Node<Expr> {
                         }
 
                         // construct the struct
-                        let mut constructed_fields = Vec::with_capacity(fields.val.elements.len());
-                        for i in 0..args.val.elements.len() {
-                            let arg = &args.val.elements[i];
-                            let field = &fields.val.elements[i];
+                        let mut constructed_fields = Vec::with_capacity(fields.val.len());
+                        for i in 0..args.val.len() {
+                            let arg = &args.val[i];
+                            let field = &fields.val[i];
                             let loc = arg.loc;
 
                             match (&arg.val, &field.val) {
@@ -380,7 +380,7 @@ impl Interpret for Node<Expr> {
                             }
                         }
 
-                        Ok(Expr::Struct(List::new(constructed_fields).node(fields_loc)).node(loc))
+                        Ok(Expr::Struct(constructed_fields.node(fields_loc)).node(loc))
                     }
                     Expr::Ident(_) if context.strategy() == InterpretStrategy::Simplify => {
                         Ok(Expr::Call(Box::new(func), args).node(loc))
@@ -394,9 +394,9 @@ impl Interpret for Node<Expr> {
             Expr::Block(stmts) => {
                 let mut context = context.frame(context.strategy());
                 let mut retval = Expr::unit().node(loc);
-                let len = stmts.val.elements.len();
+                let len = stmts.val.len();
                 let mut new_stmts = Vec::with_capacity(len);
-                for (i, stmt) in stmts.val.elements.into_iter().enumerate() {
+                for (i, stmt) in stmts.val.into_iter().enumerate() {
                     let stmt = stmt.interp(&mut context)?;
                     match &stmt.val {
                         Stmt::Expr(expr) if i == len - 1 => {
@@ -410,9 +410,7 @@ impl Interpret for Node<Expr> {
 
                 match context.strategy() {
                     InterpretStrategy::Eval => Ok(retval),
-                    InterpretStrategy::Simplify => {
-                        Ok(Expr::Block(List::new(new_stmts).node(loc)).node(loc))
-                    }
+                    InterpretStrategy::Simplify => Ok(Expr::Block(new_stmts.node(loc)).node(loc)),
                 }
             }
             Expr::Array(_) => todo!("list"),
