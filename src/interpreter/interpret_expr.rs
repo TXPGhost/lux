@@ -136,13 +136,90 @@ impl Interpret for Node<Expr> {
                 let args = args.interp(context)?;
                 match &func.val {
                     Expr::Primitive(Primitive::DebugPrint) => {
-                        for arg in args.val.elements {
-                            match arg.loc {
-                                Some(loc) => println!("\t[{}] {:?}", loc.line_min, arg.val),
-                                None => println!("\t[?] {:?}", arg.val),
+                        let func_loc = func.loc;
+                        match context.strategy() {
+                            InterpretStrategy::Eval => {
+                                for arg in args.val.elements {
+                                    match arg.loc {
+                                        Some(loc) => println!("\t[{}] {:?}", loc.line_min, arg.val),
+                                        None => println!("\t[?] {:?}", arg.val),
+                                    }
+                                }
+                                Ok(Expr::unit().unloc())
                             }
+                            InterpretStrategy::Simplify => Ok(Expr::Call(
+                                Box::new(Expr::Primitive(Primitive::DebugPrint).node(func_loc)),
+                                args,
+                            )
+                            .node(loc)),
                         }
-                        Ok(Expr::unit().unloc())
+                    }
+                    Expr::Primitive(Primitive::Assert(assertion)) => {
+                        let func_loc = func.loc;
+                        if args.val.elements.len() != 2 {
+                            return Err(InterpretError::IncorrectNumberOfArguments(
+                                "wrong number of arguments passed to assert (expected 2)",
+                                2,
+                                args.val.elements.len(),
+                            ));
+                        }
+                        let lhs = &args.val.elements[0];
+                        let rhs = &args.val.elements[1];
+                        let (lhs, rhs) = match (&lhs.val, &rhs.val) {
+                            (Member::Expr(lhs), Member::Expr(rhs)) => (lhs, rhs),
+                            (Member::Named(ident, _), _) => {
+                                return Err(InterpretError::UnexpectedMemberName(
+                                    "an unnamed member was expected, but a name was provided",
+                                    ident.clone(),
+                                ))
+                            }
+                            (_, Member::Named(ident, _)) => {
+                                return Err(InterpretError::UnexpectedMemberName(
+                                    "an unnamed member was expected, but a name was provided",
+                                    ident.clone(),
+                                ))
+                            }
+                            _ => unreachable!(),
+                        };
+                        let assertion_success = match (assertion, context.strategy()) {
+                            (Assertion::Eq, InterpretStrategy::Eval) => {
+                                Some(lhs.val.is_equivalent_to(&rhs.val, context)?)
+                            }
+                            (Assertion::Ne, InterpretStrategy::Eval) => {
+                                Some(!lhs.val.is_equivalent_to(&rhs.val, context)?)
+                            }
+                            (Assertion::Subtype, InterpretStrategy::Simplify) => {
+                                Some(!lhs.val.is_subtype_of(&rhs.val, context)?)
+                            }
+                            (Assertion::Supertype, InterpretStrategy::Simplify) => {
+                                Some(!lhs.val.is_supertype_of(&rhs.val, context)?)
+                            }
+                            _ => None,
+                        };
+                        if let Some(true) = assertion_success {
+                            println!(
+                                "\t[{}] ASSERT_SUCCESS ({:?})",
+                                loc.map(|loc| loc.line_min).unwrap_or_default(),
+                                context.strategy()
+                            );
+                        }
+                        match (assertion_success, context.strategy()) {
+                            (Some(true) | None, InterpretStrategy::Eval) => {
+                                Ok(Expr::unit().unloc())
+                            }
+                            (Some(true) | None, InterpretStrategy::Simplify) => Ok(Expr::Call(
+                                Box::new(
+                                    Expr::Primitive(Primitive::Assert(*assertion)).node(func_loc),
+                                ),
+                                args,
+                            )
+                            .node(loc)),
+                            (Some(false), _) => Err(InterpretError::AssertionFailure(
+                                "values not equal",
+                                lhs.clone(),
+                                rhs.clone(),
+                            )),
+                        }
                     }
                     Expr::Func(fargs, body) => {
                         // make sure the number of arguments matches
@@ -314,14 +391,14 @@ impl Interpret for Node<Expr> {
             }
             Expr::Block(stmts) => {
                 let mut context = context.frame(context.strategy());
-                let mut value = Expr::unit().node(loc);
+                let mut retval = Expr::unit().node(loc);
                 let len = stmts.val.elements.len();
                 let mut new_stmts = Vec::with_capacity(len);
                 for (i, stmt) in stmts.val.elements.into_iter().enumerate() {
                     let stmt = stmt.interp(&mut context)?;
                     match &stmt.val {
                         Stmt::Expr(expr) if i == len - 1 => {
-                            value = expr.clone();
+                            retval = expr.clone();
                         }
                         Stmt::Expr(_) => (),
                         Stmt::Binding(_, _, _) => (),
@@ -330,7 +407,7 @@ impl Interpret for Node<Expr> {
                 }
 
                 match context.strategy() {
-                    InterpretStrategy::Eval => Ok(value),
+                    InterpretStrategy::Eval => Ok(retval),
                     InterpretStrategy::Simplify => {
                         Ok(Expr::Block(List::new(new_stmts).node(loc)).node(loc))
                     }

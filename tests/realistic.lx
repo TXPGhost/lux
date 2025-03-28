@@ -1,0 +1,27 @@
+File: <>
+Lexer: <>
+Parser: <>
+Context: <>
+Member: <>
+Expr: <>
+
+test_file(path: PathBuf): {
+	&file = File.open(path)?
+	lexer = Lexer.new_from_file(&file)?
+	tokens = lexer::tokenize()?
+	&parser = Parser.new(tokens)
+	ast = &parser::parse()?
+	context = Context.default()
+	members = ast::interp(&context)?
+	for(members) <member> {
+		if(member == Member.named) {
+			ident = member.named.ident
+			main = Ident.vident("main")
+			if(ident.val == main) {
+				main_call = Expr.call(Expr.ident(main), [])
+				=> Ok(Some(main_call::interp(&context)?))
+			}
+		}
+	}
+	Ok(None)
+}

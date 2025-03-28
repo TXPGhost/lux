@@ -1,5 +1,6 @@
-test_fn(x: U64): U64
+test_fn(x: U64): x + 2
 
 main(): {
-	test_fn(test_fn(42))
+	result = test_fn(test_fn(42))
+	assert_eq(result, 44)
 }

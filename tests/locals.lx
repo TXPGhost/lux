@@ -1,0 +1,7 @@
+main(): {
+	x = 42
+	{
+		x = 100
+	}
+	debug_print(x)
+}

@@ -271,6 +271,25 @@ pub enum Primitive {
 
     /// A helper to debug-print values
     DebugPrint,
+
+    /// A helper to assert equality
+    Assert(Assertion),
+}
+
+/// A compiler assertion
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Assertion {
+    /// Assert that two values are equal
+    Eq,
+
+    /// Assert that two values are not equal
+    Ne,
+
+    /// Assert that the left-hand-side is a subtype of the right-hand-side
+    Subtype,
+
+    /// Assert that the left-hand-side is a supertype of the right-hand-side
+    Supertype,
 }
 
 /// A helper trait for constructing [Node]s

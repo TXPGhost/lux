@@ -8,7 +8,7 @@ use std::{
 };
 
 use ast::{Expr, Ident, List, Member, Node, NodeExt};
-use interpreter::{Context, Interpret, InterpretError};
+use interpreter::{Context, Interpret, InterpretError, InterpretStrategy};
 use lexer::{LexError, Lexer};
 use parser::{ParseError, Parser};
 
@@ -61,6 +61,7 @@ fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
         if let Member::Named(ident, _) = member.val {
             let main = Ident::VIdent("main".into());
             if ident.val == main {
+                let mut context = context.frame(InterpretStrategy::Eval);
                 let main_call = Expr::Call(
                     Box::new(Expr::Ident(main.unloc()).unloc()),
                     List::new([]).unloc(),
@@ -77,18 +78,39 @@ fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
 fn main() {
     println!("\n{}\n", "RUNNING TEST SUITE...".blue().bold());
 
+    let mut args: Vec<String> = std::env::args().collect();
+    args.remove(0);
+
     let paths = std::fs::read_dir("tests").unwrap();
     let (mut pass, mut fail, mut total) = (0, 0, 0);
     let mut paths: Vec<DirEntry> = paths.into_iter().map(|path| path.unwrap()).collect();
     paths.sort_by_key(|a| a.path());
     for path in paths {
         let path = path.path();
+
+        // filter tests if arguments passed
+        let filename = path.file_name().unwrap();
+        let mut skip = false;
+        if !args.is_empty() {
+            skip = true;
+            for arg in &args {
+                if (arg.to_owned() + ".lx") == filename.to_str().unwrap() {
+                    skip = false;
+                }
+            }
+        }
+        if skip {
+            continue;
+        };
+
+        // print out test name nicely
         println!(
             "{} {}",
             "TEST".cyan().bold(),
             format!("\"{}\"", path.display()).purple()
         );
 
+        // run the test and print results
         match test_file(path) {
             Ok(result) => {
                 if let Some(result) = result {
@@ -119,6 +141,7 @@ fn main() {
         println!();
     }
 
+    // summarize results at the end
     println!();
     println!(
         "PASS: {}/{} ({:.1}%)",

@@ -183,6 +183,23 @@ impl Default for Context<'_> {
 
         add_prim(Ident::VIdent("debug_print".into()), Primitive::DebugPrint);
 
+        add_prim(
+            Ident::VIdent("assert_eq".into()),
+            Primitive::Assert(Assertion::Eq),
+        );
+        add_prim(
+            Ident::VIdent("assert_ne".into()),
+            Primitive::Assert(Assertion::Ne),
+        );
+        add_prim(
+            Ident::VIdent("assert_sub".into()),
+            Primitive::Assert(Assertion::Subtype),
+        );
+        add_prim(
+            Ident::VIdent("assert_super".into()),
+            Primitive::Assert(Assertion::Supertype),
+        );
+
         context
     }
 }
@@ -241,6 +258,9 @@ pub enum InterpretError {
 
     /// Tried to evaluate a type in the "eval" stage of the interpreter
     CannotEvaluateType(&'static str, Node<Expr>),
+
+    /// A user assertion failed
+    AssertionFailure(&'static str, Node<Expr>, Node<Expr>),
 }
 
 /// Trait for interpreting expressions

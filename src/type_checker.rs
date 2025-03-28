@@ -197,6 +197,7 @@ impl TypeCompare for Primitive {
             Primitive::True => Ok(false),
             Primitive::False => Ok(false),
             Primitive::DebugPrint => Ok(false),
+            Primitive::Assert(_) => Ok(false),
         }
     }
 
@@ -208,6 +209,7 @@ impl TypeCompare for Primitive {
             (Primitive::True, Primitive::True) => Ok(true),
             (Primitive::False, Primitive::False) => Ok(true),
             (Primitive::DebugPrint, Primitive::DebugPrint) => Ok(true),
+            (Primitive::Assert(lhs), Primitive::Assert(rhs)) => Ok(lhs == rhs),
             _ => Ok(false),
         }
     }
