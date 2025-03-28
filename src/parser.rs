@@ -1,7 +1,7 @@
 use std::num::ParseIntError;
 
 use crate::{
-    ast::*,
+    ast::{parse_tree::*, *},
     lexer::{LocatedToken, Token},
 };
 

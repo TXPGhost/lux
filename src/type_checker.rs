@@ -1,7 +1,7 @@
 #![allow(clippy::match_like_matches_macro)]
 
 use crate::{
-    ast::*,
+    ast::{parse_tree::*, *},
     interpreter::{Context, ContextDefinition, InterpretError},
 };
 

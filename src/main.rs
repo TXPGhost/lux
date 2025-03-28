@@ -7,7 +7,8 @@ use std::{
     path::PathBuf,
 };
 
-use ast::{Expr, Ident, Member, Node, NodeExt};
+use ast::parse_tree::{Expr, Ident, Member};
+use ast::{Node, NodeExt};
 use interpreter::{Context, Interpret, InterpretError, InterpretStrategy};
 use lexer::{LexError, Lexer};
 use parser::{ParseError, Parser};
@@ -25,6 +26,9 @@ pub mod lexer;
 
 /// Produces an abstract syntax tree by parsing the lexer output
 pub mod parser;
+
+/// Pretty-prints an abstract syntax tree
+pub mod pretty_print;
 
 /// Checks whether values are subtypes/supertypes of one another
 pub mod type_checker;

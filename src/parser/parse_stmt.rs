@@ -1,4 +1,8 @@
-use crate::{ast::*, lexer::Token, parser::ParseError};
+use crate::{
+    ast::{parse_tree::*, *},
+    lexer::Token,
+    parser::ParseError,
+};
 
 use super::Parse;
 
