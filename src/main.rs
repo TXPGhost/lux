@@ -8,7 +8,7 @@ use std::{
 };
 
 use ast::{
-    desugar::{Desugar, DesugarArena, DesugarError},
+    flatten::{ASTArena, Flatten, FlattenError},
     parse_tree::{Expr, Ident, Member},
 };
 use ast::{Node, NodeExt};
@@ -53,7 +53,7 @@ enum TestError {
     Parse(ParseError),
 
     /// A desugaring error
-    Desugar(DesugarError),
+    Flatten(FlattenError),
 
     /// An interpreter error at the simplify stage
     Simplify(InterpretError),
@@ -68,10 +68,10 @@ fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
     let tokens = lexer.tokenize().map_err(TestError::Lex)?;
     let mut parser = Parser::new(&tokens);
     let parse_tree = parser.parse().map_err(TestError::Parse)?;
-    let mut arena = DesugarArena::default();
+    let mut arena = ASTArena::default();
     let desugared = parse_tree
-        .desugar(&mut arena, None)
-        .map_err(TestError::Desugar)?;
+        .flatten(&mut arena, None)
+        .map_err(TestError::Flatten)?;
     //let mut context = Context::default();
     //let members = parse_tree
     //    .interp(&mut context)
@@ -147,7 +147,7 @@ fn main() {
                     TestError::Io(e) => println!("\t{:<15}: {:?}", "FAIL_IO".red(), e),
                     TestError::Lex(e) => println!("\t{:<15}: {:?}", "FAIL_LEX".red(), e),
                     TestError::Parse(e) => println!("\t{:<15}: {:?}", "FAIL_PARSE".red(), e),
-                    TestError::Desugar(e) => println!("\t{:<15}: {:?}", "FAIL_DESUGAR".red(), e),
+                    TestError::Flatten(e) => println!("\t{:<15}: {:?}", "FAIL_DESUGAR".red(), e),
                     TestError::Simplify(e) => {
                         println!("\t{:<15}: {:?}", "FAIL_SIMPLIFY".red(), e)
                     }

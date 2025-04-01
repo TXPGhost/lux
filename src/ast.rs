@@ -5,11 +5,8 @@ use crate::lexer::{LocatedToken, Operator};
 /// The direct output of the parser (IR level 1)
 pub mod parse_tree;
 
-/// The desugared and flattened parser output (IR level 2)
-pub mod desugar;
-
-/// The flattened AST with identifiers resolved (IR level 3)
-pub mod resolve;
+/// The desugared and flattened AST (IR level 2)
+pub mod flatten;
 
 /// An AST node, with a value and a source file location
 #[derive(Clone, Debug)]

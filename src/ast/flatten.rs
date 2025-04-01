@@ -4,13 +4,9 @@ use crate::arena::{Arena, Handle};
 
 use super::*;
 
-/// A pointer to a [Def] stored in a [DefArena]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct DefPtr(usize);
-
-/// The result of a desugaring operation, a global pool of all expressions
+/// A global pool of all AST expressions, members, and blocks
 #[derive(Debug, Default)]
-pub struct DesugarArena {
+pub struct ASTArena {
     /// A global arena of all member definitions
     pub members: Arena<Node<Members>>,
 
@@ -21,19 +17,9 @@ pub struct DesugarArena {
     pub exprs: Arena<Node<Expr>>,
 }
 
-/// Indicates that a type is capable of lookup of identifiers
-pub trait Lookup {
-    /// Recursively looks up the given identifier
-    fn lookup(&self, arena: &DesugarArena, ident: Ident)
-        -> Result<Handle<Node<Expr>>, LookupError>;
-}
-
-/// An error that can occur during a lookup
-pub struct LookupError;
-
-/// An error that can occur during desugaring
+/// An error that can occur during parse tree flattening
 #[derive(Clone, Debug)]
-pub enum DesugarError {}
+pub enum FlattenError {}
 
 /// A generic expression
 #[derive(Clone, Debug)]
@@ -82,19 +68,6 @@ pub enum Parent {
     Block(Handle<Node<Block>>),
 }
 
-impl Lookup for Parent {
-    fn lookup(
-        &self,
-        arena: &DesugarArena,
-        ident: Ident,
-    ) -> Result<Handle<Node<Expr>>, LookupError> {
-        match self {
-            Parent::Members(members) => members.lookup(arena, ident),
-            Parent::Block(block) => block.lookup(arena, ident),
-        }
-    }
-}
-
 /// A block of code
 #[derive(Clone, Debug)]
 pub struct Block {
@@ -103,52 +76,6 @@ pub struct Block {
 
     /// The block's parent
     pub parent: Option<Parent>,
-}
-
-impl Lookup for Handle<Node<Block>> {
-    fn lookup(
-        &self,
-        arena: &DesugarArena,
-        ident: Ident,
-    ) -> Result<Handle<Node<Expr>>, LookupError> {
-        // TODO: shadowing
-        let block = arena.blocks.get(*self);
-        for stmt in &block.val.stmts {
-            // TODO: type lookup?
-            if let Some(stmt_ident) = &stmt.val.ident {
-                if stmt_ident.val == ident {
-                    return Ok(stmt.val.value);
-                }
-            }
-        }
-
-        match block.val.parent {
-            Some(parent) => parent.lookup(arena, ident),
-            None => Err(LookupError),
-        }
-    }
-}
-
-impl Lookup for Handle<Node<Members>> {
-    fn lookup(
-        &self,
-        arena: &DesugarArena,
-        ident: Ident,
-    ) -> Result<Handle<Node<Expr>>, LookupError> {
-        let members = arena.members.get(*self);
-        for member in &members.val.members {
-            if let Field::Ident(field_ident) = &member.val.field.val {
-                if field_ident.val == ident {
-                    return Ok(member.val.expr);
-                }
-            }
-        }
-
-        match members.val.parent {
-            Some(parent) => parent.lookup(arena, ident),
-            None => Err(LookupError),
-        }
-    }
 }
 
 /// An array expression
@@ -188,6 +115,9 @@ pub enum Ident {
 
     /// A hoisted identifier
     Hoist(Box<Ident>),
+
+    /// A resolved identifier
+    Resolved(Handle<Node<Expr>>),
 }
 
 /// A uniquely-named identifier
@@ -241,31 +171,31 @@ pub enum Field {
     Number(u64),
 }
 
-/// Desugaring from the parse tree to the desugared abstract syntax tree
-pub trait Desugar: Sized {
-    /// The desugared version of this type
-    type Desugared;
+/// Converts the parse tree into the flattened abstract syntax tree
+pub trait Flatten: Sized {
+    /// The flattened version of this type
+    type Flattened;
 
-    /// Desugars the given type
-    fn desugar(
+    /// Flattens the given type
+    fn flatten(
         self,
-        arena: &mut DesugarArena,
+        arena: &mut ASTArena,
         parent: Option<Parent>,
-    ) -> Result<Self::Desugared, DesugarError>;
+    ) -> Result<Self::Flattened, FlattenError>;
 }
 
-impl Desugar for Node<parse_tree::Expr> {
-    type Desugared = Handle<Node<Expr>>;
+impl Flatten for Node<parse_tree::Expr> {
+    type Flattened = Handle<Node<Expr>>;
 
-    fn desugar(
+    fn flatten(
         self,
-        arena: &mut DesugarArena,
+        arena: &mut ASTArena,
         parent: Option<Parent>,
-    ) -> Result<Self::Desugared, DesugarError> {
+    ) -> Result<Self::Flattened, FlattenError> {
         let loc = self.loc;
         match self.val {
             parse_tree::Expr::Ident(ident) => {
-                let ident = ident.desugar(arena, parent)?;
+                let ident = ident.flatten(arena, parent)?;
                 Ok(arena.exprs.add(Expr::Ident(ident).node(loc)))
             }
             parse_tree::Expr::Binop(binop) => {
@@ -279,7 +209,7 @@ impl Desugar for Node<parse_tree::Expr> {
                     parse_tree::Member::Expr(*binop.val.rhs).node(rhs_loc),
                 ]
                 .node(loc)
-                .desugar(arena, parent)?;
+                .flatten(arena, parent)?;
                 Ok(arena.exprs.add(Expr::Call(binop_expr, members).node(loc)))
             }
             parse_tree::Expr::Unop(unop) => {
@@ -289,50 +219,50 @@ impl Desugar for Node<parse_tree::Expr> {
                     .add(Expr::Primitive(Primitive::Unop(unop.val.op.val)).node(unop.val.op.loc));
                 let members = vec![parse_tree::Member::Expr(*unop.val.expr).node(expr_loc)]
                     .node(loc)
-                    .desugar(arena, parent)?;
+                    .flatten(arena, parent)?;
                 Ok(arena.exprs.add(Expr::Call(unop_expr, members).node(loc)))
             }
             parse_tree::Expr::Index(array, index) => {
-                let array = array.desugar(arena, parent)?;
-                let index = index.desugar(arena, parent)?;
+                let array = array.flatten(arena, parent)?;
+                let index = index.flatten(arena, parent)?;
                 Ok(arena.exprs.add(Expr::Index(array, index).node(loc)))
             }
             parse_tree::Expr::Field(expr, field) => {
-                let expr = expr.desugar(arena, parent)?;
-                let field = field.desugar(arena, parent)?;
+                let expr = expr.flatten(arena, parent)?;
+                let field = field.flatten(arena, parent)?;
                 Ok(arena.exprs.add(Expr::Field(expr, field).node(loc)))
             }
             parse_tree::Expr::Struct(fields) => {
-                let fields = fields.desugar(arena, parent)?;
+                let fields = fields.flatten(arena, parent)?;
                 Ok(arena.exprs.add(Expr::Struct(fields).node(loc)))
             }
             parse_tree::Expr::Enum(variants) => {
-                let variants = variants.desugar(arena, parent)?;
+                let variants = variants.flatten(arena, parent)?;
                 Ok(arena.exprs.add(Expr::Enum(variants).node(loc)))
             }
             parse_tree::Expr::Call(func, args) => {
-                let func = func.desugar(arena, parent)?;
-                let args = args.desugar(arena, parent)?;
+                let func = func.flatten(arena, parent)?;
+                let args = args.flatten(arena, parent)?;
                 Ok(arena.exprs.add(Expr::Call(func, args).node(loc)))
             }
             parse_tree::Expr::Func(args, body) => {
-                let args = args.desugar(arena, parent)?;
-                let body = body.desugar(arena, parent)?;
+                let args = args.flatten(arena, parent)?;
+                let body = body.flatten(arena, parent)?;
                 Ok(arena.exprs.add(Expr::Func(args, body).node(loc)))
             }
             parse_tree::Expr::Block(stmts) => {
-                let stmts = stmts.desugar(arena, parent)?;
+                let stmts = stmts.flatten(arena, parent)?;
                 Ok(arena.exprs.add(Expr::Block(stmts).node(loc)))
             }
             parse_tree::Expr::Array(elements) => {
-                let elements = elements.desugar(arena, parent)?;
+                let elements = elements.flatten(arena, parent)?;
                 Ok(elements)
             }
             parse_tree::Expr::ArrayType(len, ty) => {
-                let ty = ty.desugar(arena, parent)?;
+                let ty = ty.flatten(arena, parent)?;
                 match len {
                     Some(len) => {
-                        let len = len.desugar(arena, parent)?;
+                        let len = len.flatten(arena, parent)?;
                         Ok(arena.exprs.add(Expr::ArrayType(Some(len), ty).node(loc)))
                     }
                     None => Ok(arena.exprs.add(Expr::ArrayType(None, ty).node(loc))),
@@ -345,52 +275,52 @@ impl Desugar for Node<parse_tree::Expr> {
     }
 }
 
-impl Desugar for Node<parse_tree::Ident> {
-    type Desugared = Node<Ident>;
+impl Flatten for Node<parse_tree::Ident> {
+    type Flattened = Node<Ident>;
 
-    fn desugar(
+    fn flatten(
         self,
-        arena: &mut DesugarArena,
+        arena: &mut ASTArena,
         parent: Option<Parent>,
-    ) -> Result<Self::Desugared, DesugarError> {
+    ) -> Result<Self::Flattened, FlattenError> {
         let loc = self.loc;
         match self.val {
             parse_tree::Ident::VIdent(vident) => Ok(Ident::VIdent(vident).node(loc)),
             parse_tree::Ident::TIdent(tident) => Ok(Ident::TIdent(tident).node(loc)),
             parse_tree::Ident::Hoist(ident) => Ok(Ident::Hoist(Box::new(
-                (*ident).node(loc).desugar(arena, parent)?.val,
+                (*ident).node(loc).flatten(arena, parent)?.val,
             ))
             .node(loc)),
         }
     }
 }
 
-impl Desugar for Node<parse_tree::Field> {
-    type Desugared = Node<Field>;
+impl Flatten for Node<parse_tree::Field> {
+    type Flattened = Node<Field>;
 
-    fn desugar(
+    fn flatten(
         self,
-        arena: &mut DesugarArena,
+        arena: &mut ASTArena,
         parent: Option<Parent>,
-    ) -> Result<Self::Desugared, DesugarError> {
+    ) -> Result<Self::Flattened, FlattenError> {
         let loc = self.loc;
         match self.val {
             parse_tree::Field::Number(number) => Ok(Field::Number(number).node(loc)),
             parse_tree::Field::Ident(ident) => {
-                Ok(Field::Ident(ident.unloc().desugar(arena, parent)?).node(loc))
+                Ok(Field::Ident(ident.unloc().flatten(arena, parent)?).node(loc))
             }
         }
     }
 }
 
-impl Desugar for Node<Vec<Node<parse_tree::Member>>> {
-    type Desugared = Handle<Node<Members>>;
+impl Flatten for Node<Vec<Node<parse_tree::Member>>> {
+    type Flattened = Handle<Node<Members>>;
 
-    fn desugar(
+    fn flatten(
         self,
-        arena: &mut DesugarArena,
+        arena: &mut ASTArena,
         parent: Option<Parent>,
-    ) -> Result<Self::Desugared, DesugarError> {
+    ) -> Result<Self::Flattened, FlattenError> {
         let loc = self.loc;
 
         let mut members = Vec::with_capacity(self.val.len());
@@ -398,25 +328,25 @@ impl Desugar for Node<Vec<Node<parse_tree::Member>>> {
             let member_loc = member.loc;
             let member = match member.val {
                 parse_tree::Member::Expr(expr) => {
-                    let expr = expr.desugar(arena, parent)?;
+                    let expr = expr.flatten(arena, parent)?;
                     Member {
                         field: Field::Number(idx as u64).unloc(),
                         expr,
                     }
                 }
                 parse_tree::Member::Named(ident, expr) => {
-                    let ident = ident.desugar(arena, parent)?;
-                    let expr = expr.desugar(arena, parent)?;
+                    let ident = ident.flatten(arena, parent)?;
+                    let expr = expr.flatten(arena, parent)?;
                     Member {
                         field: Field::Ident(ident).unloc(),
                         expr,
                     }
                 }
                 parse_tree::Member::NamedFunc(ident, args, expr) => {
-                    let ident = ident.desugar(arena, parent)?;
+                    let ident = ident.flatten(arena, parent)?;
                     let expr = parse_tree::Expr::Func(args, Box::new(expr))
                         .node(loc)
-                        .desugar(arena, parent)?;
+                        .flatten(arena, parent)?;
                     Member {
                         field: Field::Ident(ident).unloc(),
                         expr,
@@ -429,14 +359,14 @@ impl Desugar for Node<Vec<Node<parse_tree::Member>>> {
     }
 }
 
-impl Desugar for Node<Vec<Node<parse_tree::Stmt>>> {
-    type Desugared = Handle<Node<Block>>;
+impl Flatten for Node<Vec<Node<parse_tree::Stmt>>> {
+    type Flattened = Handle<Node<Block>>;
 
-    fn desugar(
+    fn flatten(
         self,
-        arena: &mut DesugarArena,
+        arena: &mut ASTArena,
         parent: Option<Parent>,
-    ) -> Result<Self::Desugared, DesugarError> {
+    ) -> Result<Self::Flattened, FlattenError> {
         let loc = self.loc;
 
         let mut stmts = Vec::with_capacity(self.val.len());
@@ -444,7 +374,7 @@ impl Desugar for Node<Vec<Node<parse_tree::Stmt>>> {
             let stmt_loc = stmt.loc;
             let stmt = match stmt.val {
                 parse_tree::Stmt::Expr(expr) => {
-                    let expr = expr.desugar(arena, parent)?;
+                    let expr = expr.flatten(arena, parent)?;
                     Stmt {
                         ident: None,
                         ty: expr,
@@ -452,11 +382,11 @@ impl Desugar for Node<Vec<Node<parse_tree::Stmt>>> {
                     }
                 }
                 parse_tree::Stmt::Binding(ident, ty, value) => {
-                    let ident = Some(ident.desugar(arena, parent)?);
-                    let value = value.desugar(arena, parent)?;
+                    let ident = Some(ident.flatten(arena, parent)?);
+                    let value = value.flatten(arena, parent)?;
                     match ty {
                         Some(ty) => {
-                            let ty = ty.desugar(arena, parent)?;
+                            let ty = ty.flatten(arena, parent)?;
                             Stmt { ident, ty, value }
                         }
                         None => Stmt {
@@ -474,23 +404,114 @@ impl Desugar for Node<Vec<Node<parse_tree::Stmt>>> {
     }
 }
 
-impl Desugar for Node<Vec<Node<parse_tree::Expr>>> {
-    type Desugared = Handle<Node<Expr>>;
+impl Flatten for Node<Vec<Node<parse_tree::Expr>>> {
+    type Flattened = Handle<Node<Expr>>;
 
-    fn desugar(
+    fn flatten(
         self,
-        arena: &mut DesugarArena,
+        arena: &mut ASTArena,
         parent: Option<Parent>,
-    ) -> Result<Self::Desugared, DesugarError> {
+    ) -> Result<Self::Flattened, FlattenError> {
         let loc = self.loc;
 
         let mut exprs = Vec::with_capacity(self.val.len());
         for expr in self.val {
-            exprs.push(expr.desugar(arena, parent)?);
+            exprs.push(expr.flatten(arena, parent)?);
         }
 
         Ok(arena
             .exprs
             .add(Expr::Array(Array { elements: exprs }.node(loc)).node(loc)))
+    }
+}
+
+/// Indicates that a type is capable of lookup of identifiers
+pub trait Lookup {
+    /// Recursively looks up the given identifier
+    fn lookup(&self, arena: &ASTArena, ident: &Ident) -> Result<Handle<Node<Expr>>, LookupError>;
+}
+
+/// An error that can occur during a lookup
+pub struct LookupError;
+
+impl Lookup for Parent {
+    fn lookup(&self, arena: &ASTArena, ident: &Ident) -> Result<Handle<Node<Expr>>, LookupError> {
+        match self {
+            Parent::Members(members) => members.lookup(arena, ident),
+            Parent::Block(block) => block.lookup(arena, ident),
+        }
+    }
+}
+
+impl Lookup for Handle<Node<Block>> {
+    fn lookup(&self, arena: &ASTArena, ident: &Ident) -> Result<Handle<Node<Expr>>, LookupError> {
+        // TODO: shadowing
+        let block = arena.blocks.get(*self);
+        for stmt in &block.val.stmts {
+            // TODO: type lookup?
+            if let Some(stmt_ident) = &stmt.val.ident {
+                if stmt_ident.val == *ident {
+                    return Ok(stmt.val.value);
+                }
+            }
+        }
+
+        match block.val.parent {
+            Some(parent) => parent.lookup(arena, ident),
+            None => Err(LookupError),
+        }
+    }
+}
+
+impl Lookup for Handle<Node<Members>> {
+    fn lookup(&self, arena: &ASTArena, ident: &Ident) -> Result<Handle<Node<Expr>>, LookupError> {
+        let members = arena.members.get(*self);
+        for member in &members.val.members {
+            if let Field::Ident(field_ident) = &member.val.field.val {
+                if field_ident.val == *ident {
+                    return Ok(member.val.expr);
+                }
+            }
+        }
+
+        match members.val.parent {
+            Some(parent) => parent.lookup(arena, ident),
+            None => Err(LookupError),
+        }
+    }
+}
+
+/// "Resolves" identifiers within the flattened AST
+pub trait Resolve {
+    /// "Resolves" identifiers within [self] using the given [ASTArena] and [Parent]
+    fn resolve(self, arena: &mut ASTArena, parent: Parent) -> Result<(), LookupError>;
+}
+
+impl Resolve for Handle<Node<Expr>> {
+    fn resolve(self, arena: &mut ASTArena, parent: Parent) -> Result<(), LookupError> {
+        let expr = arena.exprs.get(self);
+        let loc = expr.loc;
+        match &expr.val {
+            Expr::Ident(ident) => match parent.lookup(arena, &ident.val) {
+                Ok(expr) => {
+                    arena.exprs.get_mut(self).val = Expr::Ident(Ident::Resolved(expr).node(loc));
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            },
+            Expr::Struct(fields) => {
+                let () = ();
+                fields.resolve(arena, parent)
+            }
+            Expr::Enum(variants) => todo!(),
+            Expr::Block(block) => todo!(),
+            _ => Ok(()),
+        }
+    }
+}
+
+impl Resolve for Handle<Node<Members>> {
+    fn resolve(self, arena: &mut ASTArena, parent: Parent) -> Result<(), LookupError> {
+        todo!()
     }
 }

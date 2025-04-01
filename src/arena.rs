@@ -1,7 +1,7 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 /// A handle to a value of type [T] stored inside an [Arena]
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug)]
 pub struct Handle<T> {
     arena_idx: usize,
     phantom: PhantomData<T>,
@@ -14,6 +14,20 @@ impl<T> Clone for Handle<T> {
 }
 
 impl<T> Copy for Handle<T> {}
+
+impl<T> PartialEq for Handle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.arena_idx == other.arena_idx
+    }
+}
+
+impl<T> Eq for Handle<T> {}
+
+impl<T> Hash for Handle<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.arena_idx.hash(state);
+    }
+}
 
 /// An arena of items of type [T] referenced by index
 #[derive(Debug)]
