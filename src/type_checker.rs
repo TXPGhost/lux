@@ -44,7 +44,7 @@ impl TypeCompare for Expr {
                 let rhs = &context.lookup(rhs)?.ty().val;
                 lhs.is_equivalent_to(rhs, context)
             }
-            (Expr::Binop(lhs), Expr::Binop(rhs)) => Ok(lhs.val.op == rhs.val.op
+            (Expr::Binop(lhs), Expr::Binop(rhs)) => Ok(lhs.val.op.val == rhs.val.op.val
                 && lhs
                     .val
                     .lhs
@@ -195,20 +195,13 @@ impl TypeCompare for Primitive {
             Primitive::False => Ok(false),
             Primitive::DebugPrint => Ok(false),
             Primitive::Assert(_) => Ok(false),
+            Primitive::Binop(_) => Ok(false),
+            Primitive::Unop(_) => Ok(false),
         }
     }
 
     fn is_equivalent_to(&self, rhs: &Self, _: &Context) -> Result<bool, InterpretError> {
-        match (self, rhs) {
-            (Primitive::U64Ty, Primitive::U64Ty) => Ok(true),
-            (Primitive::U64Val(lhs), Primitive::U64Val(rhs)) => Ok(lhs == rhs),
-            (Primitive::Bool, Primitive::Bool) => Ok(true),
-            (Primitive::True, Primitive::True) => Ok(true),
-            (Primitive::False, Primitive::False) => Ok(true),
-            (Primitive::DebugPrint, Primitive::DebugPrint) => Ok(true),
-            (Primitive::Assert(lhs), Primitive::Assert(rhs)) => Ok(lhs == rhs),
-            _ => Ok(false),
-        }
+        Ok(self == rhs)
     }
 
     fn is_subtype_of(&self, rhs: &Self, context: &Context) -> Result<bool, InterpretError> {

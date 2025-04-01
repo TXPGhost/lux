@@ -1,9 +1,15 @@
 use std::fmt::Debug;
 
-use crate::lexer::LocatedToken;
+use crate::lexer::{LocatedToken, Operator};
 
-/// The direct output of the parser
+/// The direct output of the parser (IR level 1)
 pub mod parse_tree;
+
+/// The desugared and flattened parser output (IR level 2)
+pub mod desugar;
+
+/// The flattened AST with identifiers resolved (IR level 3)
+pub mod resolve;
 
 /// An AST node, with a value and a source file location
 #[derive(Clone, Debug)]
@@ -13,6 +19,16 @@ pub struct Node<T: Clone + Debug> {
 
     /// The AST node's location
     pub loc: Option<Loc>,
+}
+
+impl<T: Clone + Debug> Node<T> {
+    /// Swaps the value of this [Node] for another
+    pub fn with_val<U: Clone + Debug>(self, callback: impl FnOnce(T) -> U) -> Node<U> {
+        Node {
+            val: callback(self.val),
+            loc: self.loc,
+        }
+    }
 }
 
 /// A source file location "box" given by a range of lines and columns
@@ -68,7 +84,7 @@ pub trait NodeExt: Clone + Debug {
         }
     }
 
-    /// Constructs a located [Node] from [self] and the given [Option<Loc>]
+    /// Constructs a located [Node] from [self] and the given optional [Loc]
     fn node(self, loc: Option<Loc>) -> Node<Self> {
         Node { val: self, loc }
     }
@@ -83,3 +99,56 @@ pub trait NodeExt: Clone + Debug {
 }
 
 impl<T: Clone + Debug> NodeExt for T {}
+
+/// A compiler-intrinsic primitive type
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Primitive {
+    /// The unsigned 64-bit integer type
+    U64Ty,
+
+    /// An unsigned 64-bit integer value
+    U64Val(u64),
+
+    /// The ascii character type
+    CharTy,
+
+    /// An ascii character value
+    CharVal(u8),
+
+    /// The boolean type
+    Bool,
+
+    /// The true value
+    True,
+
+    /// The false value
+    False,
+
+    /// A helper to debug-print values
+    DebugPrint,
+
+    /// A helper to assert equality
+    Assert(Assertion),
+
+    /// A binary operation,
+    Binop(Operator),
+
+    /// A unary operation
+    Unop(Operator),
+}
+
+/// A compiler assertion
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Assertion {
+    /// Assert that two values are equal
+    Eq,
+
+    /// Assert that two values are not equal
+    Ne,
+
+    /// Assert that the left-hand-side is a subtype of the right-hand-side
+    Subtype,
+
+    /// Assert that the left-hand-side is a supertype of the right-hand-side
+    Supertype,
+}

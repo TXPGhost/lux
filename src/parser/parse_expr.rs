@@ -21,9 +21,10 @@ impl Node<Expr> {
         if let Some(Token::Operator(operator)) = parser.cur() {
             for op in operators {
                 if op == operator {
+                    let op = (*op).node(Some(Loc::from_token(parser.cur_loc().unwrap())));
                     let expr = Node::<Expr>::parse_prec(parser, prec + 1)?;
                     let loc = expr.loc;
-                    return Ok(Expr::Unop(Unop::new(*op, expr).node(loc)).node(loc));
+                    return Ok(Expr::Unop(Unop::new(op, expr).node(loc)).node(loc));
                 }
             }
         }
@@ -40,10 +41,11 @@ impl Node<Expr> {
         if let Some(Token::Operator(operator)) = parser.cur() {
             for op in operators {
                 if op == operator {
+                    let op = (*op).node(Some(Loc::from_token(parser.cur_loc().unwrap())));
                     parser.eat();
                     let rhs = Node::<Expr>::parse_prec(parser, next_prec)?;
                     let loc = Loc::combine(expr.loc, rhs.loc);
-                    return Ok(Expr::Binop(Binop::new(expr, *op, rhs).node(loc)).node(loc));
+                    return Ok(Expr::Binop(Binop::new(expr, op, rhs).node(loc)).node(loc));
                 }
             }
         }
@@ -76,10 +78,11 @@ impl Node<Expr> {
             let mut proceed = false;
             for op in operators {
                 if op == operator {
+                    let op = (*op).node(Some(Loc::from_token(parser.cur_loc().unwrap())));
                     parser.eat();
                     let rhs = Node::<Expr>::parse_prec(parser, prec + 1)?;
                     let loc = Loc::combine(expr.loc, rhs.loc);
-                    expr = Expr::Binop(Binop::new(expr, *op, rhs).node(loc)).node(loc);
+                    expr = Expr::Binop(Binop::new(expr, op, rhs).node(loc)).node(loc);
                     proceed = true;
                     break;
                 }
@@ -98,7 +101,7 @@ impl Node<Expr> {
                 let lambda = Self::parse_binop_right_assoc(parser, prec, &[Operator::FatArrow])?;
                 let loc = lambda.loc;
                 if let Expr::Binop(binop) = &lambda.val {
-                    if let Operator::FatArrow = &binop.val.op {
+                    if let Operator::FatArrow = &binop.val.op.val {
                         if let Expr::Struct(fields) = &binop.val.lhs.val {
                             return Ok(Expr::Func(fields.clone(), binop.val.rhs.clone()).node(loc));
                         }

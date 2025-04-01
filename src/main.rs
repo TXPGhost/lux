@@ -7,13 +7,19 @@ use std::{
     path::PathBuf,
 };
 
-use ast::parse_tree::{Expr, Ident, Member};
+use ast::{
+    desugar::{Desugar, DesugarArena, DesugarError},
+    parse_tree::{Expr, Ident, Member},
+};
 use ast::{Node, NodeExt};
 use interpreter::{Context, Interpret, InterpretError, InterpretStrategy};
 use lexer::{LexError, Lexer};
 use parser::{ParseError, Parser};
 
 use colored::Colorize;
+
+/// An arena data structure
+pub mod arena;
 
 /// The abstract syntax tree
 pub mod ast;
@@ -46,6 +52,9 @@ enum TestError {
     /// A parsing error
     Parse(ParseError),
 
+    /// A desugaring error
+    Desugar(DesugarError),
+
     /// An interpreter error at the simplify stage
     Simplify(InterpretError),
 
@@ -58,24 +67,30 @@ fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
     let lexer = Lexer::new_from_file(&mut file).map_err(TestError::Io)?;
     let tokens = lexer.tokenize().map_err(TestError::Lex)?;
     let mut parser = Parser::new(&tokens);
-    let ast = parser.parse().map_err(TestError::Parse)?;
-    let mut context = Context::default();
-    let members = ast.interp(&mut context).map_err(TestError::Simplify)?;
-    for member in members.val {
-        if let Member::Named(ident, _) = member.val {
-            let main = Ident::VIdent("main".into());
-            if ident.val == main {
-                let mut context = context.frame(InterpretStrategy::Eval);
-                let main_call = Expr::Call(
-                    Box::new(Expr::Ident(main.unloc()).unloc()),
-                    Vec::new().unloc(),
-                )
-                .unloc();
-                let result = main_call.interp(&mut context).map_err(TestError::Eval)?;
-                return Ok(Some(result));
-            }
-        }
-    }
+    let parse_tree = parser.parse().map_err(TestError::Parse)?;
+    let mut arena = DesugarArena::default();
+    let desugared = parse_tree
+        .desugar(&mut arena, None)
+        .map_err(TestError::Desugar)?;
+    //let mut context = Context::default();
+    //let members = parse_tree
+    //    .interp(&mut context)
+    //    .map_err(TestError::Simplify)?;
+    //for member in members.val {
+    //    if let Member::Named(ident, _) = member.val {
+    //        let main = Ident::VIdent("main".into());
+    //        if ident.val == main {
+    //            let mut context = context.frame(InterpretStrategy::Eval);
+    //            let main_call = Expr::Call(
+    //                Box::new(Expr::Ident(main.unloc()).unloc()),
+    //                Vec::new().unloc(),
+    //            )
+    //            .unloc();
+    //            let result = main_call.interp(&mut context).map_err(TestError::Eval)?;
+    //            return Ok(Some(result));
+    //        }
+    //    }
+    //}
     Ok(None)
 }
 
@@ -132,6 +147,7 @@ fn main() {
                     TestError::Io(e) => println!("\t{:<15}: {:?}", "FAIL_IO".red(), e),
                     TestError::Lex(e) => println!("\t{:<15}: {:?}", "FAIL_LEX".red(), e),
                     TestError::Parse(e) => println!("\t{:<15}: {:?}", "FAIL_PARSE".red(), e),
+                    TestError::Desugar(e) => println!("\t{:<15}: {:?}", "FAIL_DESUGAR".red(), e),
                     TestError::Simplify(e) => {
                         println!("\t{:<15}: {:?}", "FAIL_SIMPLIFY".red(), e)
                     }

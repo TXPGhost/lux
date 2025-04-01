@@ -30,7 +30,7 @@ impl Interpret for Node<Expr> {
                     Expr::Primitive(Primitive::U64Val(y)),
                 ) = (&lhs.val, &rhs.val)
                 {
-                    return match binop.val.op {
+                    return match binop.val.op.val {
                         Operator::Plus => Ok(Expr::Primitive(Primitive::U64Val(x + y)).node(loc)),
                         Operator::Minus => Ok(Expr::Primitive(Primitive::U64Val(x - y)).node(loc)),
                         Operator::Times => Ok(Expr::Primitive(Primitive::U64Val(x * y)).node(loc)),
@@ -49,7 +49,7 @@ impl Interpret for Node<Expr> {
                     };
                 }
 
-                match binop.val.op {
+                match binop.val.op.val {
                     Operator::ThinArrow => todo!("pipe"),
                     Operator::FatArrow => todo!("lambda"),
                     _ => {

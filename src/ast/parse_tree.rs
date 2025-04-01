@@ -113,12 +113,12 @@ pub struct Unop {
     pub expr: Box<Node<Expr>>,
 
     /// The operator to use
-    pub op: Operator,
+    pub op: Node<Operator>,
 }
 
 impl Unop {
     /// Constructs a new [Unop] with the given [Operator] and expression
-    pub fn new(op: Operator, expr: Node<Expr>) -> Self {
+    pub fn new(op: Node<Operator>, expr: Node<Expr>) -> Self {
         Self {
             op,
             expr: Box::new(expr),
@@ -136,12 +136,12 @@ pub struct Binop {
     pub rhs: Box<Node<Expr>>,
 
     /// The operator to use
-    pub op: Operator,
+    pub op: Node<Operator>,
 }
 
 impl Binop {
     /// Constructs a new [Binop] with the given [Operator] and operands
-    pub fn new(lhs: Node<Expr>, op: Operator, rhs: Node<Expr>) -> Self {
+    pub fn new(lhs: Node<Expr>, op: Node<Operator>, rhs: Node<Expr>) -> Self {
         Self {
             lhs: Box::new(lhs),
             op,
@@ -168,51 +168,4 @@ pub enum Field {
 
     /// A numbered field, used to access unnamed members
     Number(u64),
-}
-
-/// A compiler-intrinsic primitive type
-#[derive(Clone, Debug)]
-pub enum Primitive {
-    /// The unsigned 64-bit integer type
-    U64Ty,
-
-    /// An unsigned 64-bit integer value
-    U64Val(u64),
-
-    /// The ascii character type
-    CharTy,
-
-    /// An ascii character value
-    CharVal(u8),
-
-    /// The boolean type
-    Bool,
-
-    /// The true value
-    True,
-
-    /// The false value
-    False,
-
-    /// A helper to debug-print values
-    DebugPrint,
-
-    /// A helper to assert equality
-    Assert(Assertion),
-}
-
-/// A compiler assertion
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Assertion {
-    /// Assert that two values are equal
-    Eq,
-
-    /// Assert that two values are not equal
-    Ne,
-
-    /// Assert that the left-hand-side is a subtype of the right-hand-side
-    Subtype,
-
-    /// Assert that the left-hand-side is a supertype of the right-hand-side
-    Supertype,
 }
