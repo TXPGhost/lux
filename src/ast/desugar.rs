@@ -9,27 +9,27 @@ use super::*;
 pub struct DefPtr(usize);
 
 /// The result of a desugaring operation, a global pool of all expressions
-#[derive(Debug, Default)]
-pub struct DesugarArena {
+#[derive(Debug)]
+pub struct ASTArena<I: IdentTy> {
     /// A global arena of all member definitions
-    pub members: Arena<Node<Members>>,
+    pub members: Arena<Node<Members<I>>>,
 
     /// A global arena of all block definitions
-    pub blocks: Arena<Node<Block>>,
+    pub blocks: Arena<Node<Block<I>>>,
 
     /// A global arena of all expressions
-    pub exprs: Arena<Node<Expr>>,
+    pub exprs: Arena<Node<Expr<I>>>,
 }
 
-/// Indicates that a type is capable of lookup of identifiers
-pub trait Lookup {
-    /// Recursively looks up the given identifier
-    fn lookup(&self, arena: &DesugarArena, ident: Ident)
-        -> Result<Handle<Node<Expr>>, LookupError>;
+impl<I: IdentTy> Default for ASTArena<I> {
+    fn default() -> Self {
+        Self {
+            members: Arena::default(),
+            blocks: Arena::default(),
+            exprs: Arena::default(),
+        }
+    }
 }
-
-/// An error that can occur during a lookup
-pub struct LookupError;
 
 /// An error that can occur during desugaring
 #[derive(Clone, Debug)]
@@ -37,144 +37,101 @@ pub enum DesugarError {}
 
 /// A generic expression
 #[derive(Clone, Debug)]
-pub enum Expr {
+pub enum Expr<I: IdentTy> {
     /// An identifier expression
-    Ident(Node<Ident>),
+    Ident(I),
 
     /// An index expression
-    Index(Handle<Node<Expr>>, Handle<Node<Expr>>),
+    Index(Handle<Node<Expr<I>>>, Handle<Node<Expr<I>>>),
 
     /// A field expression
-    Field(Handle<Node<Expr>>, Node<Field>),
+    Field(Handle<Node<Expr<I>>>, Node<Field>),
 
     /// A handle to a struct expression
-    Struct(Handle<Node<Members>>),
+    Struct(Handle<Node<Members<I>>>),
 
     /// A handle to an enum expression
-    Enum(Handle<Node<Members>>),
+    Enum(Handle<Node<Members<I>>>),
 
     /// A call expression
-    Call(Handle<Node<Expr>>, Handle<Node<Members>>),
+    Call(Handle<Node<Expr<I>>>, Handle<Node<Members<I>>>),
 
     /// A function expression
-    Func(Handle<Node<Members>>, Handle<Node<Expr>>),
+    Func(Handle<Node<Members<I>>>, Handle<Node<Expr<I>>>),
 
     /// A handle to a block expression
-    Block(Handle<Node<Block>>),
+    Block(Handle<Node<Block<I>>>),
 
     /// An array expression
-    Array(Node<Array>),
+    Array(Node<Array<I>>),
 
     /// An array type expression
-    ArrayType(Option<Handle<Node<Expr>>>, Handle<Node<Expr>>),
+    ArrayType(Option<Handle<Node<Expr<I>>>>, Handle<Node<Expr<I>>>),
 
     /// A primitive expression
     Primitive(Primitive),
 }
 
+/// An identifier type, which parametrizes the desugared AST
+pub trait IdentTy: Clone + Debug {}
+
+/// A yet unresolved identifier
+pub type UnresolvedIdent = Node<Ident>;
+
+impl IdentTy for Node<Ident> {}
+
 /// A handle to the "parent" of an expression (with regards to scoping)
-#[derive(Clone, Copy, Debug)]
-pub enum Parent {
+#[derive(Debug)]
+pub enum Parent<I: IdentTy> {
     /// A handle to a parent of type [Members]
-    Members(Handle<Node<Members>>),
+    Members(Handle<Node<Members<I>>>),
 
     /// A handle to a parent of type [Block]
-    Block(Handle<Node<Block>>),
+    Block(Handle<Node<Block<I>>>),
 }
 
-impl Lookup for Parent {
-    fn lookup(
-        &self,
-        arena: &DesugarArena,
-        ident: Ident,
-    ) -> Result<Handle<Node<Expr>>, LookupError> {
-        match self {
-            Parent::Members(members) => members.lookup(arena, ident),
-            Parent::Block(block) => block.lookup(arena, ident),
-        }
+impl<I: IdentTy> Clone for Parent<I> {
+    fn clone(&self) -> Self {
+        *self
     }
 }
+impl<I: IdentTy> Copy for Parent<I> {}
 
 /// A block of code
 #[derive(Clone, Debug)]
-pub struct Block {
+pub struct Block<I: IdentTy> {
     /// The list of block statements
-    pub stmts: Vec<Node<Stmt>>,
+    pub stmts: Vec<Node<Stmt<I>>>,
 
     /// The block's parent
-    pub parent: Option<Parent>,
-}
-
-impl Lookup for Handle<Node<Block>> {
-    fn lookup(
-        &self,
-        arena: &DesugarArena,
-        ident: Ident,
-    ) -> Result<Handle<Node<Expr>>, LookupError> {
-        // TODO: shadowing
-        let block = arena.blocks.get(*self);
-        for stmt in &block.val.stmts {
-            // TODO: type lookup?
-            if let Some(stmt_ident) = &stmt.val.ident {
-                if stmt_ident.val == ident {
-                    return Ok(stmt.val.value);
-                }
-            }
-        }
-
-        match block.val.parent {
-            Some(parent) => parent.lookup(arena, ident),
-            None => Err(LookupError),
-        }
-    }
-}
-
-impl Lookup for Handle<Node<Members>> {
-    fn lookup(
-        &self,
-        arena: &DesugarArena,
-        ident: Ident,
-    ) -> Result<Handle<Node<Expr>>, LookupError> {
-        let members = arena.members.get(*self);
-        for member in &members.val.members {
-            if let Field::Ident(field_ident) = &member.val.field.val {
-                if field_ident.val == ident {
-                    return Ok(member.val.expr);
-                }
-            }
-        }
-
-        match members.val.parent {
-            Some(parent) => parent.lookup(arena, ident),
-            None => Err(LookupError),
-        }
-    }
+    pub parent: Option<Parent<I>>,
 }
 
 /// An array expression
 #[derive(Clone, Debug)]
-pub struct Array {
-    elements: Vec<Handle<Node<Expr>>>,
+pub struct Array<I: IdentTy> {
+    /// The elements of the array
+    pub elements: Vec<Handle<Node<Expr<I>>>>,
 }
 
 /// A list of members (named or positional)
 #[derive(Clone, Debug)]
-pub struct Members {
+pub struct Members<I: IdentTy> {
     /// The list of members
-    pub members: Vec<Node<Member>>,
+    pub members: Vec<Node<Member<I>>>,
 
     /// The parent of this node
-    pub parent: Option<Parent>,
+    pub parent: Option<Parent<I>>,
 }
 
 /// A named member (of a struct or enum)
 #[derive(Clone, Debug)]
-pub struct Member {
+pub struct Member<I: IdentTy> {
     /// The list of fields
     pub field: Node<Field>,
 
     /// The parents of this node
-    pub expr: Handle<Node<Expr>>,
+    pub expr: Handle<Node<Expr<I>>>,
 }
 
 /// An identifier
@@ -225,10 +182,15 @@ impl UniqueIdent {
 
 /// A statement, for use within blocks
 #[derive(Clone, Debug)]
-pub struct Stmt {
-    ident: Option<Node<Ident>>,
-    ty: Handle<Node<Expr>>,
-    value: Handle<Node<Expr>>,
+pub struct Stmt<I: IdentTy> {
+    /// The identifier the statement assigns to
+    pub ident: Option<Node<Ident>>,
+
+    /// The type of the statement
+    pub ty: Handle<Node<Expr<I>>>,
+
+    /// The value of the statement
+    pub value: Handle<Node<Expr<I>>>,
 }
 
 /// A field (a struct member or an enum variant)
@@ -249,18 +211,18 @@ pub trait Desugar: Sized {
     /// Desugars the given type
     fn desugar(
         self,
-        arena: &mut DesugarArena,
-        parent: Option<Parent>,
+        arena: &mut ASTArena<UnresolvedIdent>,
+        parent: Option<Parent<UnresolvedIdent>>,
     ) -> Result<Self::Desugared, DesugarError>;
 }
 
 impl Desugar for Node<parse_tree::Expr> {
-    type Desugared = Handle<Node<Expr>>;
+    type Desugared = Handle<Node<Expr<UnresolvedIdent>>>;
 
     fn desugar(
         self,
-        arena: &mut DesugarArena,
-        parent: Option<Parent>,
+        arena: &mut ASTArena<UnresolvedIdent>,
+        parent: Option<Parent<UnresolvedIdent>>,
     ) -> Result<Self::Desugared, DesugarError> {
         let loc = self.loc;
         match self.val {
@@ -350,15 +312,15 @@ impl Desugar for Node<parse_tree::Ident> {
 
     fn desugar(
         self,
-        arena: &mut DesugarArena,
-        parent: Option<Parent>,
+        _arena: &mut ASTArena<UnresolvedIdent>,
+        _parent: Option<Parent<UnresolvedIdent>>,
     ) -> Result<Self::Desugared, DesugarError> {
         let loc = self.loc;
         match self.val {
             parse_tree::Ident::VIdent(vident) => Ok(Ident::VIdent(vident).node(loc)),
             parse_tree::Ident::TIdent(tident) => Ok(Ident::TIdent(tident).node(loc)),
             parse_tree::Ident::Hoist(ident) => Ok(Ident::Hoist(Box::new(
-                (*ident).node(loc).desugar(arena, parent)?.val,
+                (*ident).node(loc).desugar(_arena, _parent)?.val,
             ))
             .node(loc)),
         }
@@ -370,8 +332,8 @@ impl Desugar for Node<parse_tree::Field> {
 
     fn desugar(
         self,
-        arena: &mut DesugarArena,
-        parent: Option<Parent>,
+        arena: &mut ASTArena<UnresolvedIdent>,
+        parent: Option<Parent<UnresolvedIdent>>,
     ) -> Result<Self::Desugared, DesugarError> {
         let loc = self.loc;
         match self.val {
@@ -384,12 +346,12 @@ impl Desugar for Node<parse_tree::Field> {
 }
 
 impl Desugar for Node<Vec<Node<parse_tree::Member>>> {
-    type Desugared = Handle<Node<Members>>;
+    type Desugared = Handle<Node<Members<UnresolvedIdent>>>;
 
     fn desugar(
         self,
-        arena: &mut DesugarArena,
-        parent: Option<Parent>,
+        arena: &mut ASTArena<UnresolvedIdent>,
+        parent: Option<Parent<UnresolvedIdent>>,
     ) -> Result<Self::Desugared, DesugarError> {
         let loc = self.loc;
 
@@ -430,12 +392,12 @@ impl Desugar for Node<Vec<Node<parse_tree::Member>>> {
 }
 
 impl Desugar for Node<Vec<Node<parse_tree::Stmt>>> {
-    type Desugared = Handle<Node<Block>>;
+    type Desugared = Handle<Node<Block<UnresolvedIdent>>>;
 
     fn desugar(
         self,
-        arena: &mut DesugarArena,
-        parent: Option<Parent>,
+        arena: &mut ASTArena<UnresolvedIdent>,
+        parent: Option<Parent<UnresolvedIdent>>,
     ) -> Result<Self::Desugared, DesugarError> {
         let loc = self.loc;
 
@@ -475,12 +437,12 @@ impl Desugar for Node<Vec<Node<parse_tree::Stmt>>> {
 }
 
 impl Desugar for Node<Vec<Node<parse_tree::Expr>>> {
-    type Desugared = Handle<Node<Expr>>;
+    type Desugared = Handle<Node<Expr<UnresolvedIdent>>>;
 
     fn desugar(
         self,
-        arena: &mut DesugarArena,
-        parent: Option<Parent>,
+        arena: &mut ASTArena<UnresolvedIdent>,
+        parent: Option<Parent<UnresolvedIdent>>,
     ) -> Result<Self::Desugared, DesugarError> {
         let loc = self.loc;
 

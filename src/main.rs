@@ -8,7 +8,7 @@ use std::{
 };
 
 use ast::{
-    desugar::{Desugar, DesugarArena, DesugarError},
+    desugar::{ASTArena, Desugar, DesugarError},
     parse_tree::{Expr, Ident, Member},
 };
 use ast::{Node, NodeExt};
@@ -68,7 +68,7 @@ fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
     let tokens = lexer.tokenize().map_err(TestError::Lex)?;
     let mut parser = Parser::new(&tokens);
     let parse_tree = parser.parse().map_err(TestError::Parse)?;
-    let mut arena = DesugarArena::default();
+    let mut arena = ASTArena::default();
     let desugared = parse_tree
         .desugar(&mut arena, None)
         .map_err(TestError::Desugar)?;
