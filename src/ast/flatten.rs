@@ -7,14 +7,20 @@ use super::*;
 /// A global pool of all AST expressions, members, and blocks
 #[derive(Debug, Default)]
 pub struct ASTArena {
+    /// A global arena of all member list definitions
+    pub member_lists: Arena<Node<MemberList>>,
+
     /// A global arena of all member definitions
-    pub members: Arena<Node<Members>>,
+    pub members: Arena<Node<Member>>,
 
     /// A global arena of all block definitions
     pub blocks: Arena<Node<Block>>,
 
     /// A global arena of all expressions
     pub exprs: Arena<Node<Expr>>,
+
+    /// A global arena of all statements
+    pub stmts: Arena<Node<Stmt>>,
 }
 
 /// An error that can occur during parse tree flattening
@@ -34,16 +40,16 @@ pub enum Expr {
     Field(Handle<Node<Expr>>, Node<Field>),
 
     /// A handle to a struct expression
-    Struct(Handle<Node<Members>>),
+    Struct(Handle<Node<MemberList>>),
 
     /// A handle to an enum expression
-    Enum(Handle<Node<Members>>),
+    Enum(Handle<Node<MemberList>>),
 
     /// A call expression
-    Call(Handle<Node<Expr>>, Handle<Node<Members>>),
+    Call(Handle<Node<Expr>>, Handle<Node<MemberList>>),
 
     /// A function expression
-    Func(Handle<Node<Members>>, Handle<Node<Expr>>),
+    Func(Handle<Node<MemberList>>, Handle<Node<Expr>>),
 
     /// A handle to a block expression
     Block(Handle<Node<Block>>),
@@ -62,7 +68,7 @@ pub enum Expr {
 #[derive(Clone, Copy, Debug)]
 pub enum Parent {
     /// A handle to a parent of type [Members]
-    Members(Handle<Node<Members>>),
+    MemberList(Handle<Node<MemberList>>),
 
     /// A handle to a parent of type [Block]
     Block(Handle<Node<Block>>),
@@ -72,7 +78,7 @@ pub enum Parent {
 #[derive(Clone, Debug)]
 pub struct Block {
     /// The list of block statements
-    pub stmts: Vec<Node<Stmt>>,
+    pub stmts: Vec<Handle<Node<Stmt>>>,
 
     /// The block's parent
     pub parent: Option<Parent>,
@@ -86,21 +92,21 @@ pub struct Array {
 
 /// A list of members (named or positional)
 #[derive(Clone, Debug)]
-pub struct Members {
+pub struct MemberList {
     /// The list of members
-    pub members: Vec<Node<Member>>,
+    pub members: Vec<Handle<Node<Member>>>,
 
     /// The parent of this node
     pub parent: Option<Parent>,
 }
 
-/// A named member (of a struct or enum)
+/// A named or positional member (of a struct or enum)
 #[derive(Clone, Debug)]
 pub struct Member {
-    /// The list of fields
+    /// The member's identifier
     pub field: Node<Field>,
 
-    /// The parents of this node
+    /// A handle to the member expression
     pub expr: Handle<Node<Expr>>,
 }
 
@@ -314,7 +320,7 @@ impl Flatten for Node<parse_tree::Field> {
 }
 
 impl Flatten for Node<Vec<Node<parse_tree::Member>>> {
-    type Flattened = Handle<Node<Members>>;
+    type Flattened = Handle<Node<MemberList>>;
 
     fn flatten(
         self,
@@ -353,9 +359,11 @@ impl Flatten for Node<Vec<Node<parse_tree::Member>>> {
                     }
                 }
             };
-            members.push(member.node(member_loc));
+            members.push(arena.members.add(member.node(member_loc)));
         }
-        Ok(arena.members.add(Members { members, parent }.node(loc)))
+        Ok(arena
+            .member_lists
+            .add(MemberList { members, parent }.node(loc)))
     }
 }
 
@@ -397,7 +405,7 @@ impl Flatten for Node<Vec<Node<parse_tree::Stmt>>> {
                     }
                 }
             };
-            stmts.push(stmt.node(stmt_loc));
+            stmts.push(arena.stmts.add(stmt.node(stmt_loc)));
         }
 
         Ok(arena.blocks.add(Block { stmts, parent }.node(loc)))
@@ -428,29 +436,43 @@ impl Flatten for Node<Vec<Node<parse_tree::Expr>>> {
 /// Indicates that a type is capable of lookup of identifiers
 pub trait Lookup {
     /// Recursively looks up the given identifier
-    fn lookup(&self, arena: &ASTArena, ident: &Ident) -> Result<Handle<Node<Expr>>, LookupError>;
+    fn lookup(
+        &self,
+        arena: &ASTArena,
+        ident: &Node<Ident>,
+    ) -> Result<Handle<Node<Expr>>, LookupError>;
 }
 
 /// An error that can occur during a lookup
-pub struct LookupError;
+#[derive(Clone, Debug)]
+pub struct LookupError(&'static str, Node<Ident>);
 
 impl Lookup for Parent {
-    fn lookup(&self, arena: &ASTArena, ident: &Ident) -> Result<Handle<Node<Expr>>, LookupError> {
+    fn lookup(
+        &self,
+        arena: &ASTArena,
+        ident: &Node<Ident>,
+    ) -> Result<Handle<Node<Expr>>, LookupError> {
         match self {
-            Parent::Members(members) => members.lookup(arena, ident),
+            Parent::MemberList(members) => members.lookup(arena, ident),
             Parent::Block(block) => block.lookup(arena, ident),
         }
     }
 }
 
 impl Lookup for Handle<Node<Block>> {
-    fn lookup(&self, arena: &ASTArena, ident: &Ident) -> Result<Handle<Node<Expr>>, LookupError> {
+    fn lookup(
+        &self,
+        arena: &ASTArena,
+        ident: &Node<Ident>,
+    ) -> Result<Handle<Node<Expr>>, LookupError> {
         // TODO: shadowing
         let block = arena.blocks.get(*self);
         for stmt in &block.val.stmts {
             // TODO: type lookup?
+            let stmt = arena.stmts.get(*stmt);
             if let Some(stmt_ident) = &stmt.val.ident {
-                if stmt_ident.val == *ident {
+                if stmt_ident.val == ident.val {
                     return Ok(stmt.val.value);
                 }
             }
@@ -458,17 +480,22 @@ impl Lookup for Handle<Node<Block>> {
 
         match block.val.parent {
             Some(parent) => parent.lookup(arena, ident),
-            None => Err(LookupError),
+            None => Err(LookupError("unable to resolve identifier", ident.clone())),
         }
     }
 }
 
-impl Lookup for Handle<Node<Members>> {
-    fn lookup(&self, arena: &ASTArena, ident: &Ident) -> Result<Handle<Node<Expr>>, LookupError> {
-        let members = arena.members.get(*self);
+impl Lookup for Handle<Node<MemberList>> {
+    fn lookup(
+        &self,
+        arena: &ASTArena,
+        ident: &Node<Ident>,
+    ) -> Result<Handle<Node<Expr>>, LookupError> {
+        let members = arena.member_lists.get(*self);
         for member in &members.val.members {
+            let member = arena.members.get(*member);
             if let Field::Ident(field_ident) = &member.val.field.val {
-                if field_ident.val == *ident {
+                if field_ident.val == ident.val {
                     return Ok(member.val.expr);
                 }
             }
@@ -476,7 +503,7 @@ impl Lookup for Handle<Node<Members>> {
 
         match members.val.parent {
             Some(parent) => parent.lookup(arena, ident),
-            None => Err(LookupError),
+            None => Err(LookupError("unable to resolve identifier", ident.clone())),
         }
     }
 }
@@ -492,26 +519,58 @@ impl Resolve for Handle<Node<Expr>> {
         let expr = arena.exprs.get(self);
         let loc = expr.loc;
         match &expr.val {
-            Expr::Ident(ident) => match parent.lookup(arena, &ident.val) {
+            Expr::Ident(ident) => match parent.lookup(arena, &ident) {
                 Ok(expr) => {
                     arena.exprs.get_mut(self).val = Expr::Ident(Ident::Resolved(expr).node(loc));
                     Ok(())
                 }
                 Err(e) => Err(e),
             },
-            Expr::Struct(fields) => {
-                let () = ();
-                fields.resolve(arena, parent)
-            }
-            Expr::Enum(variants) => todo!(),
-            Expr::Block(block) => todo!(),
+            Expr::Struct(fields) => fields.resolve(arena, parent),
+            Expr::Enum(variants) => variants.resolve(arena, parent),
+            Expr::Block(block) => block.resolve(arena, parent),
             _ => Ok(()),
         }
     }
 }
 
-impl Resolve for Handle<Node<Members>> {
+impl Resolve for Handle<Node<MemberList>> {
     fn resolve(self, arena: &mut ASTArena, parent: Parent) -> Result<(), LookupError> {
-        todo!()
+        let members = arena.member_lists.get(self);
+        let members = members.val.members.clone();
+        let parent = Parent::MemberList(self);
+        for member in members {
+            member.resolve(arena, parent)?;
+        }
+        Ok(())
+    }
+}
+
+impl Resolve for Handle<Node<Block>> {
+    fn resolve(self, arena: &mut ASTArena, parent: Parent) -> Result<(), LookupError> {
+        let block = arena.blocks.get(self);
+        let stmts = block.val.stmts.clone();
+        let parent = Parent::Block(self);
+        for stmt in stmts {
+            stmt.resolve(arena, parent)?;
+        }
+        Ok(())
+    }
+}
+
+impl Resolve for Handle<Node<Member>> {
+    fn resolve(self, arena: &mut ASTArena, parent: Parent) -> Result<(), LookupError> {
+        let member = arena.members.get(self);
+        member.val.expr.resolve(arena, parent)
+    }
+}
+
+impl Resolve for Handle<Node<Stmt>> {
+    fn resolve(self, arena: &mut ASTArena, parent: Parent) -> Result<(), LookupError> {
+        let stmt = arena.stmts.get(self);
+        stmt.val.ty.resolve(arena, parent)?;
+        let stmt = arena.stmts.get(self);
+        stmt.val.value.resolve(arena, parent)?;
+        Ok(())
     }
 }

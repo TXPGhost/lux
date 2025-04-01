@@ -8,7 +8,7 @@ use std::{
 };
 
 use ast::{
-    flatten::{ASTArena, Flatten, FlattenError},
+    flatten::{ASTArena, Flatten, FlattenError, LookupError, Parent, Resolve},
     parse_tree::{Expr, Ident, Member},
 };
 use ast::{Node, NodeExt};
@@ -52,8 +52,11 @@ enum TestError {
     /// A parsing error
     Parse(ParseError),
 
-    /// A desugaring error
+    /// An AST flattening error
     Flatten(FlattenError),
+
+    /// An identifier resolution error
+    Resolve(LookupError),
 
     /// An interpreter error at the simplify stage
     Simplify(InterpretError),
@@ -72,6 +75,10 @@ fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
     let desugared = parse_tree
         .flatten(&mut arena, None)
         .map_err(TestError::Flatten)?;
+    desugared
+        .resolve(&mut arena, Parent::MemberList(desugared))
+        .map_err(TestError::Resolve)?;
+    println!("{:?}", arena);
     //let mut context = Context::default();
     //let members = parse_tree
     //    .interp(&mut context)
@@ -147,7 +154,8 @@ fn main() {
                     TestError::Io(e) => println!("\t{:<15}: {:?}", "FAIL_IO".red(), e),
                     TestError::Lex(e) => println!("\t{:<15}: {:?}", "FAIL_LEX".red(), e),
                     TestError::Parse(e) => println!("\t{:<15}: {:?}", "FAIL_PARSE".red(), e),
-                    TestError::Flatten(e) => println!("\t{:<15}: {:?}", "FAIL_DESUGAR".red(), e),
+                    TestError::Flatten(e) => println!("\t{:<15}: {:?}", "FAIL_FLATTEN".red(), e),
+                    TestError::Resolve(e) => println!("\t{:<15}: {:?}", "FAIL_RESOLVE".red(), e),
                     TestError::Simplify(e) => {
                         println!("\t{:<15}: {:?}", "FAIL_SIMPLIFY".red(), e)
                     }
