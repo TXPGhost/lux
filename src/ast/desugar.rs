@@ -4,10 +4,6 @@ use crate::arena::{Arena, Handle};
 
 use super::*;
 
-/// A pointer to a [Def] stored in a [DefArena]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct DefPtr(usize);
-
 /// The result of a desugaring operation, a global pool of all expressions
 #[derive(Debug)]
 pub struct ASTArena<I: IdentTy> {

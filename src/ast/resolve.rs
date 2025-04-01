@@ -11,7 +11,7 @@ pub struct ResolvedIdent {
 
 impl IdentTy for ResolvedIdent {}
 
-/// Trait to "resolve" an AST from having [RawIdent] identifiers to having [ResolvedIdent]
+/// Trait to "resolve" an AST from having [UnresolvedIdent] identifiers to having [ResolvedIdent]
 pub trait Resolve {}
 
 /// Indicates that a type is capable of lookup of identifiers

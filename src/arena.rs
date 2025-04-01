@@ -1,6 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-/// A handle to a value of type [T] stored inside an [Arena]
+/// A handle to a value of type `T` stored inside an [Arena]
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Handle<T> {
     arena_idx: usize,
@@ -15,7 +15,7 @@ impl<T> Clone for Handle<T> {
 
 impl<T> Copy for Handle<T> {}
 
-/// An arena of items of type [T] referenced by index
+/// An arena of items of type `T` referenced by index
 #[derive(Debug)]
 pub struct Arena<T: Debug> {
     data: Vec<T>,
@@ -27,7 +27,7 @@ impl<T: Debug> Arena<T> {
         Self::default()
     }
 
-    /// Adds a value of type [T] to the [Arena], returning a [Handle]
+    /// Adds a value of type `T` to the [Arena], returning a [Handle]
     pub fn add(&mut self, value: T) -> Handle<T> {
         self.data.push(value);
         Handle {
