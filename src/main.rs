@@ -17,6 +17,7 @@ use lexer::{LexError, Lexer};
 use parser::{ParseError, Parser};
 
 use colored::Colorize;
+use pretty_print::PrettyPrint;
 
 /// An arena data structure
 pub mod arena;
@@ -65,12 +66,18 @@ enum TestError {
     Eval(InterpretError),
 }
 
-fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
+struct TestResult {
+    return_expr: Option<Node<Expr>>,
+    pretty_printed: String,
+}
+
+fn test_file(path: PathBuf) -> Result<TestResult, TestError> {
     let mut file = File::open(path).map_err(TestError::Io)?;
     let lexer = Lexer::new_from_file(&mut file).map_err(TestError::Io)?;
     let tokens = lexer.tokenize().map_err(TestError::Lex)?;
     let mut parser = Parser::new(&tokens);
     let parse_tree = parser.parse().map_err(TestError::Parse)?;
+    let pretty_printed = format!("{}", parse_tree.val.printable(&()));
     let (mut arena, prelude) = DesugarArena::new_prelude();
     let desugared = parse_tree
         .desugar(&mut arena, Some(prelude))
@@ -97,7 +104,10 @@ fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
     //        }
     //    }
     //}
-    Ok(None)
+    Ok(TestResult {
+        return_expr: None,
+        pretty_printed,
+    })
 }
 
 fn main() {
@@ -138,13 +148,15 @@ fn main() {
         // run the test and print results
         match test_file(path) {
             Ok(result) => {
-                if let Some(result) = result {
-                    println!("\t==> {:?}", result.val);
+                if let Some(return_expr) = result.return_expr {
+                    println!("\t==> {:?}", return_expr.val);
                 }
 
                 pass += 1;
                 total += 1;
                 println!("\t{}", "PASS".green());
+
+                println!("\n{}", result.pretty_printed.bright_black());
             }
             Err(e) => {
                 fail += 1;
