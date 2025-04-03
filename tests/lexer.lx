@@ -60,19 +60,21 @@ Grouping: <
     angle: ()
     curly: ()
 
-    open_char(self: Grouping): self->&[
-        Grouping.paren => '('
-        Grouping.bracket => '['
-        Grouping.angle => '<'
-        Grouping.curly => '{'
-    ]
+	..(
+		open_char(self: Grouping): self->&[
+			Grouping.paren => '('
+			Grouping.bracket => '['
+			Grouping.angle => '<'
+			Grouping.curly => '{'
+		]
 
-    close_char(self: Grouping): self->&[
-        Grouping.paren => ')'
-        Grouping.bracket => ']'
-        Grouping.angle => '>'
-        Grouping.curly => '}'
-    ]
+		close_char(self: Grouping): self->&[
+			Grouping.paren => ')'
+			Grouping.bracket => ']'
+			Grouping.angle => '>'
+			Grouping.curly => '}'
+		]
+	)
 >
 
 Separator: <
@@ -86,6 +88,12 @@ Separator: <
             Separator.newline => "\n"
             Separator.double_newline => "\n\n"
         ]
+
+		to_string(self: Separator): {
+			self.comma { "," }
+			self.newline { "\n" }
+			self.double_newline { "\n\n" }
+		}
     )
 >
 

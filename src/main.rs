@@ -71,14 +71,13 @@ fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
     let tokens = lexer.tokenize().map_err(TestError::Lex)?;
     let mut parser = Parser::new(&tokens);
     let parse_tree = parser.parse().map_err(TestError::Parse)?;
-    let mut arena = ASTArena::default();
+    let (mut arena, prelude) = ASTArena::new_prelude();
     let desugared = parse_tree
-        .flatten(&mut arena, None)
+        .flatten(&mut arena, Some(prelude))
         .map_err(TestError::Flatten)?;
     desugared
         .resolve(&mut arena, Parent::MemberList(desugared))
         .map_err(TestError::Resolve)?;
-    println!("{:?}", arena);
     //let mut context = Context::default();
     //let members = parse_tree
     //    .interp(&mut context)

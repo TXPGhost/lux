@@ -23,6 +23,41 @@ pub struct ASTArena {
     pub stmts: Arena<Node<Stmt>>,
 }
 
+impl ASTArena {
+    /// Constructs a new `ASTArena` with prelude symbols defined
+    pub fn new_prelude() -> (Self, Parent) {
+        let mut member_lists = Arena::default();
+        let mut members = Arena::default();
+        let mut exprs = Arena::default();
+
+        let u64ty = members.add(
+            Member {
+                field: Field::Ident(Ident::TIdent("U64".into()).unloc()).unloc(),
+                expr: exprs.add(Expr::Primitive(Primitive::U64Ty).unloc()),
+            }
+            .unloc(),
+        );
+
+        let member_list = member_lists.add(
+            MemberList {
+                members: vec![u64ty],
+                parent: None,
+            }
+            .unloc(),
+        );
+
+        let arena = Self {
+            member_lists,
+            members,
+            blocks: Arena::default(),
+            exprs,
+            stmts: Arena::default(),
+        };
+
+        (arena, Parent::MemberList(member_list))
+    }
+}
+
 /// An error that can occur during parse tree flattening
 #[derive(Clone, Debug)]
 pub enum FlattenError {}
@@ -445,7 +480,7 @@ pub trait Lookup {
 
 /// An error that can occur during a lookup
 #[derive(Clone, Debug)]
-pub struct LookupError(&'static str, Node<Ident>);
+pub struct LookupError(pub &'static str, pub Node<Ident>);
 
 impl Lookup for Parent {
     fn lookup(
