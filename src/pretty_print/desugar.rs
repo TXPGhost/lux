@@ -12,6 +12,7 @@ pub struct Context {
     multiline: bool,
     forbid_multiline: bool,
     max_depth: usize,
+    ident_and_prim_hints: bool,
 }
 
 impl Default for Context {
@@ -21,6 +22,7 @@ impl Default for Context {
             multiline: true,
             forbid_multiline: false,
             max_depth: usize::MAX,
+            ident_and_prim_hints: true,
         }
     }
 }
@@ -58,6 +60,14 @@ impl Context {
     pub fn forbid_multiline(self) -> Self {
         Self {
             forbid_multiline: true,
+            ..self
+        }
+    }
+
+    /// Returns the context without identifier and primitive hints
+    pub fn no_ident_and_prim_hints(self) -> Self {
+        Self {
+            ident_and_prim_hints: false,
             ..self
         }
     }
@@ -102,10 +112,23 @@ impl PrettyPrint for Handle<Node<Expr>> {
         state: &Self::State,
         context: &mut Self::Context,
     ) -> std::fmt::Result {
+        let expr = &state.exprs.get(*self).val;
         if context.depth_check() {
+            if context.ident_and_prim_hints {
+                if let Expr::Ident(ident) = expr {
+                    return write!(
+                        f,
+                        "expr${}<{}>",
+                        self.get_idx(),
+                        ident.val.printable_ctx(state, *context)
+                    );
+                }
+                if let Expr::Primitive(primitive) = expr {
+                    return write!(f, "expr${}<{}>", self.get_idx(), primitive.printable(&()));
+                }
+            }
             return write!(f, "expr${}", self.get_idx());
         }
-        let expr = &state.exprs.get(*self).val;
         match expr {
             Expr::Ident(ident) => ident.val.pretty_print(f, state, context)?,
             Expr::Index(expr, index) => {
@@ -305,22 +328,37 @@ impl PrettyPrint for DesugarArena {
         state: &Self::State,
         context: &mut Self::Context,
     ) -> std::fmt::Result {
-        let ctx = Context::default().forbid_multiline().max_depth(1);
-        for (i, expr) in self.exprs.iter_handles().enumerate() {
-            writeln!(f, "expr${} ::: {}", i, expr.printable_ctx(self, ctx))?;
-        }
-        for (i, member) in self.members.iter_handles().enumerate() {
-            writeln!(f, "member${} ::: {}", i, member.printable_ctx(self, ctx))?;
-        }
-        for (i, block) in self.blocks.iter_handles().enumerate() {
-            writeln!(f, "block${} ::: {}", i, block.printable_ctx(self, ctx))?;
-        }
-        for (i, member_list) in self.member_lists.iter_handles().enumerate() {
+        let ctx = Context::default().forbid_multiline();
+        for item in self.exprs.iter_handles() {
             writeln!(
                 f,
-                "member_list${} ::: {}",
-                i,
-                member_list.printable_ctx(self, ctx)
+                "{} ::: {}",
+                item.printable_ctx(self, ctx.max_depth(0).no_ident_and_prim_hints()),
+                item.printable_ctx(self, ctx.max_depth(1))
+            )?;
+        }
+        for item in self.members.iter_handles() {
+            writeln!(
+                f,
+                "{} ::: {}",
+                item.printable_ctx(self, ctx.max_depth(0).no_ident_and_prim_hints()),
+                item.printable_ctx(self, ctx.max_depth(1))
+            )?;
+        }
+        for item in self.blocks.iter_handles() {
+            writeln!(
+                f,
+                "{} ::: {}",
+                item.printable_ctx(self, ctx.max_depth(0).no_ident_and_prim_hints()),
+                item.printable_ctx(self, ctx.max_depth(1))
+            )?;
+        }
+        for item in self.member_lists.iter_handles() {
+            writeln!(
+                f,
+                "{} ::: {}",
+                item.printable_ctx(self, ctx.max_depth(0).no_ident_and_prim_hints()),
+                item.printable_ctx(self, ctx.max_depth(1))
             )?;
         }
         Ok(())
