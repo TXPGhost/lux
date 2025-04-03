@@ -25,7 +25,9 @@ impl Default for Context {
     }
 }
 
-trait HasPrec {
+/// Indicates that a type has a precedence (w.r.t. pretty printing)
+pub trait HasPrec {
+    /// The precedence level of this type
     fn prec(&self) -> usize;
 }
 
@@ -198,20 +200,7 @@ impl PrettyPrint for Expr {
                 write!(f, "]")?;
                 ty.val.pretty_print(f, state, context)?;
             }
-            Expr::Primitive(primitive) => match primitive {
-                Primitive::U64Ty => todo!(),
-                Primitive::U64Val(val) => write!(f, "{}", val)?,
-                Primitive::CharTy => todo!(),
-                Primitive::CharVal(_) => todo!(),
-                Primitive::Bool => todo!(),
-                Primitive::True => todo!(),
-                Primitive::False => todo!(),
-                Primitive::DebugPrint => write!(f, "debug_print")?,
-                Primitive::Assert(assertion) => todo!(),
-                Primitive::Binop(operator) => todo!(),
-                Primitive::Unop(operator) => todo!(),
-                _ => unreachable!(),
-            },
+            Expr::Primitive(primitive) => primitive.pretty_print(f, state, context)?,
         }
         if wrap_parens {
             write!(f, ")")?;
@@ -383,6 +372,56 @@ impl PrettyPrint for Stmt {
                 expr.val.pretty_print(f, state, &mut context.indented())?;
                 Ok(())
             }
+        }
+    }
+}
+
+impl PrettyPrint for Primitive {
+    type State = ();
+    type Context = Context;
+
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        state: &Self::State,
+        context: &mut Self::Context,
+    ) -> std::fmt::Result {
+        match self {
+            Primitive::U64Ty => write!(f, "%U64"),
+            Primitive::U64Val(val) => write!(f, "{}", val),
+            Primitive::CharTy => todo!(),
+            Primitive::CharVal(_) => todo!(),
+            Primitive::Bool => todo!(),
+            Primitive::True => todo!(),
+            Primitive::False => todo!(),
+            Primitive::DebugPrint => write!(f, "debug_print"),
+            Primitive::Assert(assertion) => todo!(),
+            Primitive::Unop(operator) | Primitive::Binop(operator) => match operator {
+                Operator::Dot => unreachable!(),
+                Operator::Plus => write!(f, "%add"),
+                Operator::Minus => write!(f, "%sub"),
+                Operator::Times => write!(f, "%mul"),
+                Operator::Divide => write!(f, "%div"),
+                Operator::Modulo => write!(f, "%mod"),
+                Operator::Concat => write!(f, "%concat"),
+                Operator::Repeat => write!(f, "%repeat"),
+                Operator::And => unreachable!(),
+                Operator::Or => unreachable!(),
+                Operator::Not => write!(f, "%not"),
+                Operator::Backslash => unreachable!(),
+                Operator::ThinArrow => unreachable!(),
+                Operator::FatArrow => unreachable!(),
+                Operator::Question => todo!("question mark operator"),
+                Operator::Length => write!(f, "%len"),
+                Operator::Range => todo!("range operator"),
+                Operator::DoubleEquals => write!(f, "%eq"),
+                Operator::NotEquals => write!(f, "%ne"),
+                Operator::Greater => write!(f, "%gt"),
+                Operator::Less => write!(f, "%lt"),
+                Operator::GreaterEquals => write!(f, "%ge"),
+                Operator::LessEquals => write!(f, "%le"),
+                Operator::Caret => unreachable!(),
+            },
         }
     }
 }

@@ -3,6 +3,9 @@ use std::fmt::{Display, Formatter, Result};
 /// Pretty printer for the parse tree
 pub mod parse_tree;
 
+/// Pretty printer for the desugared AST
+pub mod desugar;
+
 /// Indicates that a type is pretty-printable
 pub trait PrettyPrint: Sized {
     /// External state to read from (e.g. an arena)

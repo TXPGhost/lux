@@ -7,6 +7,13 @@ pub struct Handle<T> {
     phantom: PhantomData<T>,
 }
 
+impl<T> Handle<T> {
+    /// Returns the arena index associated with this handle
+    pub fn get_idx(&self) -> usize {
+        self.arena_idx
+    }
+}
+
 impl<T> Clone for Handle<T> {
     fn clone(&self) -> Self {
         *self
@@ -58,6 +65,11 @@ impl<T: Debug> Arena<T> {
     /// Returns a mutable reference to the value referenced by a [Handle]
     pub fn get_mut(&mut self, handle: Handle<T>) -> &mut T {
         &mut self.data[handle.arena_idx]
+    }
+
+    /// Returns an iterator over items in this arena
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.data.iter()
     }
 }
 
