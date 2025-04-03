@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
-/// A handle to a value of type [T] stored inside an [Arena]
+/// A handle to a value of type `T` stored inside an [Arena]
 #[derive(Debug)]
 pub struct Handle<T> {
     arena_idx: usize,
@@ -36,7 +36,7 @@ impl<T> Hash for Handle<T> {
     }
 }
 
-/// An arena of items of type [T] referenced by index
+/// An arena of items of type `T` referenced by index
 #[derive(Debug)]
 pub struct Arena<T: Debug> {
     data: Vec<T>,
@@ -48,7 +48,7 @@ impl<T: Debug> Arena<T> {
         Self::default()
     }
 
-    /// Adds a value of type [T] to the [Arena], returning a [Handle]
+    /// Adds a value of type `T` to the [Arena], returning a [Handle]
     pub fn add(&mut self, value: T) -> Handle<T> {
         self.data.push(value);
         Handle {
@@ -67,9 +67,12 @@ impl<T: Debug> Arena<T> {
         &mut self.data[handle.arena_idx]
     }
 
-    /// Returns an iterator over items in this arena
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
-        self.data.iter()
+    /// Returns an iterator over handles in this arena
+    pub fn iter_handles(&self) -> impl Iterator<Item = Handle<T>> {
+        (0..self.data.len()).into_iter().map(|i| Handle {
+            arena_idx: i,
+            phantom: PhantomData,
+        })
     }
 }
 

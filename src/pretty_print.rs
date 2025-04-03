@@ -24,7 +24,16 @@ pub trait PrettyPrint: Sized {
 
     /// Returns a wrapper of this type that implements the [Display] trait
     fn printable<'a>(&'a self, state: &'a Self::State) -> PrettyPrintable<'a, Self> {
-        PrettyPrintable(self, state)
+        PrettyPrintable(self, state, Self::Context::default())
+    }
+
+    /// Returns a wrapper of this type that implements the [Display] trait with the given context
+    fn printable_ctx<'a>(
+        &'a self,
+        state: &'a Self::State,
+        context: Self::Context,
+    ) -> PrettyPrintable<'a, Self> {
+        PrettyPrintable(self, state, context)
     }
 
     /// Prints the current indentation level
@@ -34,16 +43,16 @@ pub trait PrettyPrint: Sized {
 }
 
 /// A wrapper struct that allows a pretty-printable type to implement [Display]
-pub struct PrettyPrintable<'a, T: PrettyPrint>(&'a T, &'a T::State);
+pub struct PrettyPrintable<'a, T: PrettyPrint>(&'a T, &'a T::State, T::Context);
 
 impl<T: PrettyPrint> Display for PrettyPrintable<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        self.0.pretty_print(f, self.1, &mut T::Context::default())
+        self.0.pretty_print(f, self.1, &mut self.2.clone())
     }
 }
 
 /// A type that supports being used as a pretty print context
-pub trait PrettyPrintContext: Default {
+pub trait PrettyPrintContext: Clone + Default {
     /// Returns the current indentation level
     fn indent_level(&self) -> usize;
 

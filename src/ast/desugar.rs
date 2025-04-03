@@ -102,7 +102,7 @@ pub enum Expr {
 /// A handle to the "parent" of an expression (with regards to scoping)
 #[derive(Clone, Copy, Debug)]
 pub enum Parent {
-    /// A handle to a parent of type [Members]
+    /// A handle to a parent of type [MemberList]
     MemberList(Handle<Node<MemberList>>),
 
     /// A handle to a parent of type [Block]
@@ -550,7 +550,7 @@ impl Lookup for Handle<Node<MemberList>> {
 
 /// "Resolves" identifiers within the desugared AST
 pub trait Resolve {
-    /// "Resolves" identifiers within [self] using the given [ASTArena] and [Parent]
+    /// "Resolves" identifiers within [self] using the given [DesugarArena] and [Parent]
     fn resolve(self, arena: &mut DesugarArena, parent: Parent) -> Result<(), LookupError>;
 }
 
@@ -559,7 +559,7 @@ impl Resolve for Handle<Node<Expr>> {
         let expr = arena.exprs.get(self);
         let loc = expr.loc;
         match &expr.val {
-            Expr::Ident(ident) => match parent.lookup(arena, &ident) {
+            Expr::Ident(ident) => match parent.lookup(arena, ident) {
                 Ok(expr) => {
                     arena.exprs.get_mut(self).val = Expr::Ident(Ident::Resolved(expr).node(loc));
                     Ok(())

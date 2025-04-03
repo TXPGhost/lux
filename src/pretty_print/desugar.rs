@@ -1,6 +1,7 @@
-use std::usize;
-
-use crate::ast::{desugar::*, Node, Primitive};
+use crate::{
+    arena::Handle,
+    ast::{desugar::*, Node},
+};
 
 use super::{PrettyPrint, PrettyPrintContext};
 
@@ -9,6 +10,8 @@ use super::{PrettyPrint, PrettyPrintContext};
 pub struct Context {
     indent_level: usize,
     multiline: bool,
+    forbid_multiline: bool,
+    max_depth: usize,
 }
 
 impl Default for Context {
@@ -16,6 +19,8 @@ impl Default for Context {
         Self {
             indent_level: 0,
             multiline: true,
+            forbid_multiline: false,
+            max_depth: usize::MAX,
         }
     }
 }
@@ -34,12 +39,39 @@ impl PrettyPrintContext for Context {
 }
 
 impl Context {
-    fn multiline(self, multiline: bool) -> Self {
+    /// Returns [true] if the context is requesting multiline output
+    pub fn is_multiline(&self) -> bool {
+        self.multiline && !self.forbid_multiline
+    }
+
+    /// Returns the context with the given [multiline] option
+    pub fn multiline(self, multiline: bool) -> Self {
         Self { multiline, ..self }
+    }
+
+    /// Returns the context with the given maximum traversal depth
+    pub fn max_depth(self, max_depth: usize) -> Self {
+        Self { max_depth, ..self }
+    }
+
+    /// Returns the context with multiline forbidden
+    pub fn forbid_multiline(self) -> Self {
+        Self {
+            forbid_multiline: true,
+            ..self
+        }
+    }
+
+    fn depth_check(&mut self) -> bool {
+        if self.max_depth == 0 {
+            return true;
+        }
+        self.max_depth -= 1;
+        false
     }
 }
 
-impl PrettyPrint for Member {
+impl PrettyPrint for Handle<Node<Member>> {
     type State = DesugarArena;
     type Context = Context;
 
@@ -49,18 +81,18 @@ impl PrettyPrint for Member {
         state: &Self::State,
         context: &mut Self::Context,
     ) -> std::fmt::Result {
-        self.field.val.pretty_print(f, state, context)?;
+        if context.depth_check() {
+            return write!(f, "member${}", self.get_idx());
+        }
+        let member = &state.members.get(*self).val;
+        member.field.val.pretty_print(f, state, context)?;
         write!(f, ": ")?;
-        state
-            .exprs
-            .get(self.expr)
-            .val
-            .pretty_print(f, state, context)?;
+        member.expr.pretty_print(f, state, context)?;
         Ok(())
     }
 }
 
-impl PrettyPrint for Expr {
+impl PrettyPrint for Handle<Node<Expr>> {
     type State = DesugarArena;
     type Context = Context;
 
@@ -70,76 +102,56 @@ impl PrettyPrint for Expr {
         state: &Self::State,
         context: &mut Self::Context,
     ) -> std::fmt::Result {
-        match self {
+        if context.depth_check() {
+            return write!(f, "expr${}", self.get_idx());
+        }
+        let expr = &state.exprs.get(*self).val;
+        match expr {
             Expr::Ident(ident) => ident.val.pretty_print(f, state, context)?,
             Expr::Index(expr, index) => {
-                state.exprs.get(*expr).val.pretty_print(f, state, context)?;
+                expr.pretty_print(f, state, context)?;
                 write!(f, "[")?;
-                state
-                    .exprs
-                    .get(*index)
-                    .val
-                    .pretty_print(f, state, context)?;
+                expr.pretty_print(f, state, context)?;
                 write!(f, "]")?;
             }
             Expr::Field(expr, field) => {
-                state.exprs.get(*expr).val.pretty_print(f, state, context)?;
+                expr.pretty_print(f, state, context)?;
                 write!(f, ".")?;
                 field.val.pretty_print(f, state, context)?;
             }
             Expr::Struct(member_list) => {
                 write!(f, "(")?;
-                state
-                    .member_lists
-                    .get(*member_list)
-                    .val
-                    .pretty_print(f, state, context)?;
+                member_list.pretty_print(f, state, context)?;
                 write!(f, ")")?;
             }
             Expr::Enum(member_list) => {
                 write!(f, "<")?;
-                state
-                    .member_lists
-                    .get(*member_list)
-                    .val
-                    .pretty_print(f, state, context)?;
+                member_list.pretty_print(f, state, context)?;
                 write!(f, ">")?;
             }
             Expr::Call(func, args) => {
-                state.exprs.get(*func).val.pretty_print(f, state, context)?;
+                func.pretty_print(f, state, context)?;
                 write!(f, "(")?;
-                state.member_lists.get(*args).val.pretty_print(
-                    f,
-                    state,
-                    &mut context.multiline(false),
-                )?;
+                args.pretty_print(f, state, &mut context.multiline(false))?;
                 write!(f, ")")?;
             }
             Expr::Func(args, body) => {
                 write!(f, "(")?;
-                state
-                    .member_lists
-                    .get(*args)
-                    .val
-                    .pretty_print(f, state, context)?;
+                args.pretty_print(f, state, context)?;
                 write!(f, ") => ")?;
-                state.exprs.get(*body).val.pretty_print(f, state, context)?;
+                body.pretty_print(f, state, context)?;
             }
             Expr::Block(block) => {
-                state
-                    .blocks
-                    .get(*block)
-                    .val
-                    .pretty_print(f, state, context)?;
+                block.pretty_print(f, state, context)?;
             }
             Expr::Array(array) => todo!(),
             Expr::ArrayType(len, ty) => {
                 write!(f, "[")?;
                 if let Some(len) = len {
-                    state.exprs.get(*len).val.pretty_print(f, state, context)?;
+                    len.pretty_print(f, state, context)?;
                 }
                 write!(f, "]")?;
-                state.exprs.get(*ty).val.pretty_print(f, state, context)?;
+                ty.pretty_print(f, state, context)?;
             }
             Expr::Primitive(primitive) => write!(f, "{}", primitive.printable(&()))?,
         }
@@ -186,7 +198,7 @@ impl PrettyPrint for Field {
     }
 }
 
-impl PrettyPrint for Vec<Node<Member>> {
+impl PrettyPrint for Handle<Node<Stmt>> {
     type State = DesugarArena;
     type Context = Context;
 
@@ -196,76 +208,22 @@ impl PrettyPrint for Vec<Node<Member>> {
         state: &Self::State,
         context: &mut Self::Context,
     ) -> std::fmt::Result {
-        for (i, member) in self.iter().enumerate() {
-            if context.multiline {
-                self.indent(f, context)?;
-            }
-            member.val.pretty_print(f, state, context)?;
-            if context.multiline {
-                writeln!(f)?;
-            } else if i != self.len() - 1 {
-                write!(f, ", ")?;
-            }
+        if context.depth_check() {
+            return write!(f, "stmt${}", self.get_idx());
         }
-        Ok(())
-    }
-}
-
-impl PrettyPrint for Vec<Node<Stmt>> {
-    type State = DesugarArena;
-    type Context = Context;
-
-    fn pretty_print(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-        state: &Self::State,
-        context: &mut Self::Context,
-    ) -> std::fmt::Result {
-        for (i, stmt) in self.iter().enumerate() {
-            if context.multiline {
-                self.indent(f, context)?;
-            }
-            stmt.val.pretty_print(f, state, context)?;
-            if context.multiline {
-                writeln!(f)?;
-            } else if i != self.len() - 1 {
-                write!(f, ", ")?;
-            }
-        }
-        Ok(())
-    }
-}
-
-impl PrettyPrint for Stmt {
-    type State = DesugarArena;
-    type Context = Context;
-
-    fn pretty_print(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-        state: &Self::State,
-        context: &mut Self::Context,
-    ) -> std::fmt::Result {
-        if let Some(ident) = &self.ident {
+        let stmt = &state.stmts.get(*self).val;
+        if let Some(ident) = &stmt.ident {
             ident.val.pretty_print(f, state, context)?;
             write!(f, ": ")?;
-            state
-                .exprs
-                .get(self.ty)
-                .val
-                .pretty_print(f, state, context)?;
+            stmt.ty.pretty_print(f, state, context)?;
             write!(f, " = ")?;
         }
-        state
-            .exprs
-            .get(self.value)
-            .val
-            .pretty_print(f, state, context)?;
+        stmt.value.pretty_print(f, state, context)?;
         Ok(())
     }
 }
 
-impl PrettyPrint for MemberList {
+impl PrettyPrint for Handle<Node<MemberList>> {
     type State = DesugarArena;
     type Context = Context;
 
@@ -275,18 +233,18 @@ impl PrettyPrint for MemberList {
         state: &Self::State,
         context: &mut Self::Context,
     ) -> std::fmt::Result {
-        for (i, member) in self.members.iter().enumerate() {
-            if context.multiline {
+        if context.depth_check() {
+            return write!(f, "member_list${}", self.get_idx());
+        }
+        let member_list = &state.member_lists.get(*self).val;
+        for (i, member) in member_list.members.iter().enumerate() {
+            if context.is_multiline() {
                 self.indent(f, context)?;
             }
-            state
-                .members
-                .get(*member)
-                .val
-                .pretty_print(f, state, context)?;
-            if context.multiline {
+            member.pretty_print(f, state, context)?;
+            if context.is_multiline() {
                 writeln!(f)?;
-            } else if i != self.members.len() - 1 {
+            } else if i != member_list.members.len() - 1 {
                 write!(f, ", ")?;
             }
         }
@@ -294,7 +252,7 @@ impl PrettyPrint for MemberList {
     }
 }
 
-impl PrettyPrint for Block {
+impl PrettyPrint for Handle<Node<Block>> {
     type State = DesugarArena;
     type Context = Context;
 
@@ -304,30 +262,66 @@ impl PrettyPrint for Block {
         state: &Self::State,
         context: &mut Self::Context,
     ) -> std::fmt::Result {
+        if context.depth_check() {
+            return write!(f, "block${}", self.get_idx());
+        }
+        let block = &state.blocks.get(*self).val;
         {
             let context = &mut context.indented();
-            if context.multiline {
+            if context.is_multiline() {
                 writeln!(f, "{{")?;
             } else {
                 write!(f, "{{ ")?;
             }
-            for (i, stmt) in self.stmts.iter().enumerate() {
-                if context.multiline {
+            for (i, stmt) in block.stmts.iter().enumerate() {
+                if context.is_multiline() {
                     self.indent(f, context)?;
                 }
-                state.stmts.get(*stmt).val.pretty_print(f, state, context)?;
-                if context.multiline {
+                stmt.pretty_print(f, state, context)?;
+                if context.is_multiline() {
                     writeln!(f)?;
-                } else if i != self.stmts.len() - 1 {
+                } else if i != block.stmts.len() - 1 {
                     write!(f, ", ")?;
                 }
             }
         }
-        if context.multiline {
+        if context.is_multiline() {
             self.indent(f, context)?;
             write!(f, "}}")?;
         } else {
             write!(f, " }}")?;
+        }
+        Ok(())
+    }
+}
+
+impl PrettyPrint for DesugarArena {
+    type State = ();
+    type Context = Context;
+
+    fn pretty_print(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        state: &Self::State,
+        context: &mut Self::Context,
+    ) -> std::fmt::Result {
+        let ctx = Context::default().forbid_multiline().max_depth(1);
+        for (i, expr) in self.exprs.iter_handles().enumerate() {
+            writeln!(f, "expr${} ::: {}", i, expr.printable_ctx(self, ctx))?;
+        }
+        for (i, member) in self.members.iter_handles().enumerate() {
+            writeln!(f, "member${} ::: {}", i, member.printable_ctx(self, ctx))?;
+        }
+        for (i, block) in self.blocks.iter_handles().enumerate() {
+            writeln!(f, "block${} ::: {}", i, block.printable_ctx(self, ctx))?;
+        }
+        for (i, member_list) in self.member_lists.iter_handles().enumerate() {
+            writeln!(
+                f,
+                "member_list${} ::: {}",
+                i,
+                member_list.printable_ctx(self, ctx)
+            )?;
         }
         Ok(())
     }

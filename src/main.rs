@@ -7,12 +7,12 @@ use std::{
     path::PathBuf,
 };
 
+use ast::Node;
 use ast::{
     desugar::{Desugar, DesugarArena, DesugarError, LookupError, Parent, Resolve},
-    parse_tree::{Expr, Ident, Member},
+    parse_tree::Expr,
 };
-use ast::{Node, NodeExt};
-use interpreter::{Context, Interpret, InterpretError, InterpretStrategy};
+use interpreter::InterpretError;
 use lexer::{LexError, Lexer};
 use parser::{ParseError, Parser};
 
@@ -70,6 +70,7 @@ struct TestResult {
     return_expr: Option<Node<Expr>>,
     parse_tree_str: String,
     desugared_str: String,
+    arena_str: String,
     resolved_arena: DesugarArena,
 }
 
@@ -87,10 +88,8 @@ fn test_file(path: PathBuf) -> Result<TestResult, TestError> {
     desugared
         .resolve(&mut arena, Parent::MemberList(desugared))
         .map_err(TestError::Resolve)?;
-    let desugared_str = format!(
-        "{}",
-        arena.member_lists.get(desugared).val.printable(&arena)
-    );
+    let desugared_str = format!("{}", desugared.printable(&arena));
+    let arena_str = format!("{}", arena.printable(&()));
     //let mut context = Context::default();
     //let members = parse_tree
     //    .interp(&mut context)
@@ -114,6 +113,7 @@ fn test_file(path: PathBuf) -> Result<TestResult, TestError> {
         return_expr: None,
         parse_tree_str,
         desugared_str,
+        arena_str,
         resolved_arena: arena,
     })
 }
@@ -168,25 +168,21 @@ fn main() {
                 println!("{}", "PASS".green());
 
                 if !run_all {
-                    println!("\nParse Tree:\n\n{}", result.parse_tree_str.bright_black());
-                    println!("\nDesugared:\n\n{}", result.desugared_str.bright_black());
-                    println!("\nResolved Arena:\n");
-                    let mut resolved_arena_str = String::new();
-                    for (i, expr) in result.resolved_arena.exprs.iter().enumerate() {
-                        resolved_arena_str += &format!(
-                            "expr${} ==> {}\n",
-                            i,
-                            expr.val.printable(&result.resolved_arena)
-                        );
-                    }
-                    for (i, member) in result.resolved_arena.members.iter().enumerate() {
-                        resolved_arena_str += &format!(
-                            "member${} ==> {}\n",
-                            i,
-                            member.val.printable(&result.resolved_arena)
-                        );
-                    }
-                    println!("{}", resolved_arena_str.bright_black());
+                    println!(
+                        "\n{}\n\n{}",
+                        "Parse Tree".yellow(),
+                        result.parse_tree_str.bright_black()
+                    );
+                    println!(
+                        "\n{}\n\n{}",
+                        "Desugared".yellow(),
+                        result.desugared_str.bright_black()
+                    );
+                    println!(
+                        "\n{}\n\n{}",
+                        "Resolved Arena".yellow(),
+                        result.arena_str.bright_black()
+                    );
                 }
             }
             Err(e) => {
