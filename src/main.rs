@@ -8,7 +8,7 @@ use std::{
 };
 
 use ast::{
-    flatten::{ASTArena, Flatten, FlattenError, LookupError, Parent, Resolve},
+    desugar::{Desugar, DesugarArena, DesugarError, LookupError, Parent, Resolve},
     parse_tree::{Expr, Ident, Member},
 };
 use ast::{Node, NodeExt};
@@ -52,8 +52,8 @@ enum TestError {
     /// A parsing error
     Parse(ParseError),
 
-    /// An AST flattening error
-    Flatten(FlattenError),
+    /// A desugaring error
+    Desugar(DesugarError),
 
     /// An identifier resolution error
     Resolve(LookupError),
@@ -71,10 +71,10 @@ fn test_file(path: PathBuf) -> Result<Option<Node<Expr>>, TestError> {
     let tokens = lexer.tokenize().map_err(TestError::Lex)?;
     let mut parser = Parser::new(&tokens);
     let parse_tree = parser.parse().map_err(TestError::Parse)?;
-    let (mut arena, prelude) = ASTArena::new_prelude();
+    let (mut arena, prelude) = DesugarArena::new_prelude();
     let desugared = parse_tree
-        .flatten(&mut arena, Some(prelude))
-        .map_err(TestError::Flatten)?;
+        .desugar(&mut arena, Some(prelude))
+        .map_err(TestError::Desugar)?;
     desugared
         .resolve(&mut arena, Parent::MemberList(desugared))
         .map_err(TestError::Resolve)?;
@@ -153,7 +153,7 @@ fn main() {
                     TestError::Io(e) => println!("\t{:<15}: {:?}", "FAIL_IO".red(), e),
                     TestError::Lex(e) => println!("\t{:<15}: {:?}", "FAIL_LEX".red(), e),
                     TestError::Parse(e) => println!("\t{:<15}: {:?}", "FAIL_PARSE".red(), e),
-                    TestError::Flatten(e) => println!("\t{:<15}: {:?}", "FAIL_FLATTEN".red(), e),
+                    TestError::Desugar(e) => println!("\t{:<15}: {:?}", "FAIL_DESUGAR".red(), e),
                     TestError::Resolve(e) => println!("\t{:<15}: {:?}", "FAIL_RESOLVE".red(), e),
                     TestError::Simplify(e) => {
                         println!("\t{:<15}: {:?}", "FAIL_SIMPLIFY".red(), e)
