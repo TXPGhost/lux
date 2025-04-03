@@ -126,7 +126,8 @@ fn main() {
         // filter tests if arguments passed
         let filename = path.file_name().unwrap();
         let mut skip = false;
-        if !args.is_empty() {
+        let run_all = args.is_empty();
+        if !run_all {
             skip = true;
             for arg in &args {
                 if (arg.to_owned() + ".lx") == filename.to_str().unwrap() {
@@ -139,45 +140,47 @@ fn main() {
         };
 
         // print out test name nicely
-        println!(
-            "{} {}",
+        print!(
+            "{} {} ",
             "TEST".cyan().bold(),
-            format!("\"{}\"", path.display()).purple()
+            format!("\"{}\"", path.display()).purple(),
         );
 
         // run the test and print results
         match test_file(path) {
             Ok(result) => {
-                if let Some(return_expr) = result.return_expr {
-                    println!("\t==> {:?}", return_expr.val);
+                if !run_all {
+                    if let Some(return_expr) = result.return_expr {
+                        println!("\t==> {:?}", return_expr.val);
+                    }
                 }
 
                 pass += 1;
                 total += 1;
-                println!("\t{}", "PASS".green());
+                println!("{}", "PASS".green());
 
-                println!("\n{}", result.pretty_printed.bright_black());
+                if !run_all {
+                    println!("\n{}", result.pretty_printed.bright_black());
+                }
             }
             Err(e) => {
                 fail += 1;
                 total += 1;
                 match e {
-                    TestError::Io(e) => println!("\t{:<15}: {:?}", "FAIL_IO".red(), e),
-                    TestError::Lex(e) => println!("\t{:<15}: {:?}", "FAIL_LEX".red(), e),
-                    TestError::Parse(e) => println!("\t{:<15}: {:?}", "FAIL_PARSE".red(), e),
-                    TestError::Desugar(e) => println!("\t{:<15}: {:?}", "FAIL_DESUGAR".red(), e),
-                    TestError::Resolve(e) => println!("\t{:<15}: {:?}", "FAIL_RESOLVE".red(), e),
+                    TestError::Io(e) => println!("{}: {:?}", "FAIL_IO".red(), e),
+                    TestError::Lex(e) => println!("{}: {:?}", "FAIL_LEX".red(), e),
+                    TestError::Parse(e) => println!("{}: {:?}", "FAIL_PARSE".red(), e),
+                    TestError::Desugar(e) => println!("{}: {:?}", "FAIL_DESUGAR".red(), e),
+                    TestError::Resolve(e) => println!("{}: {:?}", "FAIL_RESOLVE".red(), e),
                     TestError::Simplify(e) => {
-                        println!("\t{:<15}: {:?}", "FAIL_SIMPLIFY".red(), e)
+                        println!("{}: {:?}", "FAIL_SIMPLIFY".red(), e)
                     }
                     TestError::Eval(e) => {
-                        println!("\t{:<15}: {:?}", "FAIL_EVAL".red(), e)
+                        println!("{}: {:?}", "FAIL_EVAL".red(), e)
                     }
                 }
             }
         }
-
-        println!();
     }
 
     // summarize results at the end
