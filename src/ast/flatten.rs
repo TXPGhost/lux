@@ -12,7 +12,7 @@ use super::{
 
 /// A global pool of all flattened expressions and statements
 #[derive(Debug, Default)]
-pub struct FlattenArena {
+pub struct FlattenContext {
     /// The next number to use for a temporary identifier
     pub tmp_id: usize,
 
@@ -23,7 +23,7 @@ pub struct FlattenArena {
     pub stmts: Arena<Node<Stmt>>,
 }
 
-impl FlattenArena {
+impl FlattenContext {
     /// Generates a unique identifier for use in temporaries
     pub fn gen_uid(&mut self, ident: Option<Node<Ident>>) -> Node<Ident> {
         let id = self.tmp_id;
@@ -128,7 +128,7 @@ pub trait Flatten: Sized {
     fn flatten(
         self,
         desugar_arena: &mut DesugarArena,
-        flatten_arena: &mut FlattenArena,
+        flatten_arena: &mut FlattenContext,
     ) -> Result<Self::Flattened, FlattenError>;
 }
 
@@ -139,7 +139,7 @@ impl Flatten for Handle<Node<desugar::Stmt>> {
     fn flatten(
         self,
         desugar_arena: &mut DesugarArena,
-        flatten_arena: &mut FlattenArena,
+        flatten_arena: &mut FlattenContext,
     ) -> Result<Self::Flattened, FlattenError> {
         let stmt = desugar_arena.stmts.get(self);
         let value = desugar_arena.exprs.get(stmt.val.value);
@@ -208,8 +208,20 @@ impl Flatten for Handle<Node<desugar::Expr>> {
     fn flatten(
         self,
         desugar_arena: &mut DesugarArena,
-        flatten_arena: &mut FlattenArena,
+        flatten_arena: &mut FlattenContext,
     ) -> Result<Self::Flattened, FlattenError> {
         todo!()
     }
 }
+
+//impl Flatten for Handle<Node<desugar::MemberList>> {
+//    type Flattened = Node<MemberList>;
+//
+//    fn flatten(
+//        self,
+//        desugar_arena: &mut DesugarArena,
+//        flatten_arena: &mut FlattenContext,
+//    ) -> Result<Self::Flattened, FlattenError> {
+//        todo!()
+//    }
+//}

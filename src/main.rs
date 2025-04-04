@@ -7,9 +7,12 @@ use std::{
     path::PathBuf,
 };
 
-use ast::Node;
 use ast::{
-    desugar::{Desugar, DesugarArena, DesugarError, LookupError, Parent, Resolve},
+    desugar::{lookup::LookupError, resolve::Resolve},
+    Node,
+};
+use ast::{
+    desugar::{Desugar, DesugarArena, DesugarError, Parent},
     parse_tree::Expr,
 };
 use interpreter::InterpretError;
@@ -90,25 +93,7 @@ fn test_file(path: PathBuf) -> Result<TestResult, TestError> {
         .map_err(TestError::Resolve)?;
     let desugared_str = format!("{}", desugared.printable(&arena));
     let arena_str = format!("{}", arena.printable(&()));
-    //let mut context = Context::default();
-    //let members = parse_tree
-    //    .interp(&mut context)
-    //    .map_err(TestError::Simplify)?;
-    //for member in members.val {
-    //    if let Member::Named(ident, _) = member.val {
-    //        let main = Ident::VIdent("main".into());
-    //        if ident.val == main {
-    //            let mut context = context.frame(InterpretStrategy::Eval);
-    //            let main_call = Expr::Call(
-    //                Box::new(Expr::Ident(main.unloc()).unloc()),
-    //                Vec::new().unloc(),
-    //            )
-    //            .unloc();
-    //            let result = main_call.interp(&mut context).map_err(TestError::Eval)?;
-    //            return Ok(Some(result));
-    //        }
-    //    }
-    //}
+    //let flattened = desugared.flatten();
     Ok(TestResult {
         return_expr: None,
         parse_tree_str,

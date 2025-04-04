@@ -12,6 +12,14 @@ impl<T> Handle<T> {
     pub fn get_idx(&self) -> usize {
         self.arena_idx
     }
+
+    /// Transmutes this handle into a handle of another type (use this carefully)
+    pub fn transmute<U>(self) -> Handle<U> {
+        Handle {
+            arena_idx: self.arena_idx,
+            phantom: PhantomData,
+        }
+    }
 }
 
 impl<T> Clone for Handle<T> {
@@ -69,10 +77,24 @@ impl<T: Debug> Arena<T> {
 
     /// Returns an iterator over handles in this arena
     pub fn iter_handles(&self) -> impl Iterator<Item = Handle<T>> {
-        (0..self.data.len()).into_iter().map(|i| Handle {
+        (0..self.data.len()).map(|i| Handle {
             arena_idx: i,
             phantom: PhantomData,
         })
+    }
+
+    /// Returns the number of entries in this arena
+    pub fn num_entries(&self) -> usize {
+        self.data.len()
+    }
+}
+
+impl<T: Debug + Clone> Arena<T> {
+    /// Fills an arena with the given default value (use this carefully)
+    pub fn new_filled(value: T, amount: usize) -> Self {
+        Self {
+            data: vec![value; amount],
+        }
     }
 }
 
