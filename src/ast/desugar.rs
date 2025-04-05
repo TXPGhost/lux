@@ -377,13 +377,14 @@ impl Desugar for Node<Vec<Node<parse_tree::Member>>> {
         parent: Option<Parent>,
     ) -> Result<Self::Desugared, DesugarError> {
         let loc = self.loc;
-
+        let member_list = arena.member_lists.alloc();
+        let member_parent = Some(Parent::MemberList(member_list));
         let mut members = Vec::with_capacity(self.val.len());
         for (idx, member) in self.val.into_iter().enumerate() {
             let member_loc = member.loc;
             let member = match member.val {
                 parse_tree::Member::Expr(expr) => {
-                    let expr = expr.desugar(arena, parent)?;
+                    let expr = expr.desugar(arena, member_parent)?;
                     Member {
                         field: Field::Number(idx as u64).unloc(),
                         expr,
@@ -391,7 +392,7 @@ impl Desugar for Node<Vec<Node<parse_tree::Member>>> {
                 }
                 parse_tree::Member::Named(ident, expr) => {
                     let ident = ident.desugar(arena, parent)?;
-                    let expr = expr.desugar(arena, parent)?;
+                    let expr = expr.desugar(arena, member_parent)?;
                     Member {
                         field: Field::Ident(ident).unloc(),
                         expr,
@@ -401,7 +402,7 @@ impl Desugar for Node<Vec<Node<parse_tree::Member>>> {
                     let ident = ident.desugar(arena, parent)?;
                     let expr = parse_tree::Expr::Func(args, Box::new(expr))
                         .node(loc)
-                        .desugar(arena, parent)?;
+                        .desugar(arena, member_parent)?;
                     Member {
                         field: Field::Ident(ident).unloc(),
                         expr,
@@ -410,9 +411,10 @@ impl Desugar for Node<Vec<Node<parse_tree::Member>>> {
             };
             members.push(arena.members.add(member.node(member_loc)));
         }
-        Ok(arena
+        arena
             .member_lists
-            .add(MemberList { members, parent }.node(loc)))
+            .set(member_list, MemberList { members, parent }.node(loc));
+        Ok(member_list)
     }
 }
 
@@ -425,13 +427,14 @@ impl Desugar for Node<Vec<Node<parse_tree::Stmt>>> {
         parent: Option<Parent>,
     ) -> Result<Self::Desugared, DesugarError> {
         let loc = self.loc;
-
+        let block = arena.blocks.alloc();
+        let stmt_parent = Some(Parent::Block(block));
         let mut stmts = Vec::with_capacity(self.val.len());
         for stmt in self.val {
             let stmt_loc = stmt.loc;
             let stmt = match stmt.val {
                 parse_tree::Stmt::Expr(expr) => {
-                    let expr = expr.desugar(arena, parent)?;
+                    let expr = expr.desugar(arena, stmt_parent)?;
                     Stmt {
                         ident: None,
                         ty: expr,
@@ -440,10 +443,10 @@ impl Desugar for Node<Vec<Node<parse_tree::Stmt>>> {
                 }
                 parse_tree::Stmt::Binding(ident, ty, value) => {
                     let ident = Some(ident.desugar(arena, parent)?);
-                    let value = value.desugar(arena, parent)?;
+                    let value = value.desugar(arena, stmt_parent)?;
                     match ty {
                         Some(ty) => {
-                            let ty = ty.desugar(arena, parent)?;
+                            let ty = ty.desugar(arena, stmt_parent)?;
                             Stmt { ident, ty, value }
                         }
                         None => Stmt {
@@ -457,7 +460,8 @@ impl Desugar for Node<Vec<Node<parse_tree::Stmt>>> {
             stmts.push(arena.stmts.add(stmt.node(stmt_loc)));
         }
 
-        Ok(arena.blocks.add(Block { stmts, parent }.node(loc)))
+        arena.blocks.set(block, Block { stmts, parent }.node(loc));
+        Ok(block)
     }
 }
 

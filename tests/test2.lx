@@ -1,5 +1,10 @@
 min(x: U64, y: U64): U64
 
+Char: ()
+String: []Char
+Operator: <>
+Option(T: ()): <some: T, none: ()>
+
 AST: (
 	Metadata: (
 		line_min: U64

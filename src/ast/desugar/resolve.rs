@@ -26,6 +26,13 @@ impl Resolve for Handle<Node<Expr>> {
             Expr::Struct(fields) => fields.resolve(arena, parent),
             Expr::Enum(variants) => variants.resolve(arena, parent),
             Expr::Block(block) => block.resolve(arena, parent),
+            Expr::Call(func, args) => {
+                let func = *func;
+                let args = *args;
+                func.resolve(arena, parent)?;
+                args.resolve(arena, parent)?;
+                Ok(())
+            }
             _ => Ok(()),
         }
     }
@@ -64,10 +71,12 @@ impl Resolve for Handle<Node<Member>> {
 
 impl Resolve for Handle<Node<Stmt>> {
     fn resolve(self, arena: &mut DesugarArena, parent: Parent) -> Result<(), LookupError> {
-        let stmt = arena.stmts.get(self);
-        stmt.val.ty.resolve(arena, parent)?;
-        let stmt = arena.stmts.get(self);
-        stmt.val.value.resolve(arena, parent)?;
+        //let stmt = arena.stmts.get(self);
+        //if let Some(ident) = stmt.val.ident {
+        //    ident.resolve(arena, parent)?;
+        //}
+        //stmt.val.ty.resolve(arena, parent)?;
+        //stmt.val.value.resolve(arena, parent)?;
         Ok(())
     }
 }

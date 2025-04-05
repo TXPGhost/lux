@@ -388,13 +388,13 @@ impl PrettyPrint for Primitive {
     ) -> std::fmt::Result {
         match self {
             Primitive::U64Ty => write!(f, "%U64"),
-            Primitive::U64Val(val) => write!(f, "{}", val),
+            Primitive::U64Val(val) => write!(f, "%{}_U64", val),
             Primitive::CharTy => todo!(),
             Primitive::CharVal(_) => todo!(),
             Primitive::Bool => todo!(),
             Primitive::True => todo!(),
             Primitive::False => todo!(),
-            Primitive::DebugPrint => write!(f, "debug_print"),
+            Primitive::DebugPrint => write!(f, "%debug_print"),
             Primitive::Assert(assertion) => todo!(),
             Primitive::Unop(operator) | Primitive::Binop(operator) => match operator {
                 Operator::Dot => unreachable!(),

@@ -47,7 +47,7 @@ impl<T> Hash for Handle<T> {
 /// An arena of items of type `T` referenced by index
 #[derive(Debug)]
 pub struct Arena<T: Debug> {
-    data: Vec<T>,
+    data: Vec<Option<T>>,
 }
 
 impl<T: Debug> Arena<T> {
@@ -58,7 +58,16 @@ impl<T: Debug> Arena<T> {
 
     /// Adds a value of type `T` to the [Arena], returning a [Handle]
     pub fn add(&mut self, value: T) -> Handle<T> {
-        self.data.push(value);
+        self.data.push(Some(value));
+        Handle {
+            arena_idx: self.data.len() - 1,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Allocates space for a value of type `T` to the [Arena], returning a [Handle]
+    pub fn alloc(&mut self) -> Handle<T> {
+        self.data.push(None);
         Handle {
             arena_idx: self.data.len() - 1,
             phantom: PhantomData,
@@ -67,12 +76,21 @@ impl<T: Debug> Arena<T> {
 
     /// Returns an immutable reference to the value referenced by a [Handle]
     pub fn get(&self, handle: Handle<T>) -> &T {
-        &self.data[handle.arena_idx]
+        self.data[handle.arena_idx]
+            .as_ref()
+            .expect("tried to use uninitialized value")
     }
 
     /// Returns a mutable reference to the value referenced by a [Handle]
     pub fn get_mut(&mut self, handle: Handle<T>) -> &mut T {
-        &mut self.data[handle.arena_idx]
+        self.data[handle.arena_idx]
+            .as_mut()
+            .expect("tried to use uninitialized value")
+    }
+
+    /// Assigns the value referenced by a [Handle]
+    pub fn set(&mut self, handle: Handle<T>, value: T) {
+        self.data[handle.arena_idx] = Some(value);
     }
 
     /// Returns an iterator over handles in this arena
@@ -93,7 +111,7 @@ impl<T: Debug + Clone> Arena<T> {
     /// Fills an arena with the given default value (use this carefully)
     pub fn new_filled(value: T, amount: usize) -> Self {
         Self {
-            data: vec![value; amount],
+            data: vec![Some(value); amount],
         }
     }
 }

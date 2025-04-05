@@ -345,6 +345,14 @@ impl PrettyPrint for DesugarArena {
                 item.printable_ctx(self, ctx.max_depth(1))
             )?;
         }
+        for item in self.stmts.iter_handles() {
+            writeln!(
+                f,
+                "{} ::: {}",
+                item.printable_ctx(self, ctx.max_depth(0).no_ident_and_prim_hints()),
+                item.printable_ctx(self, ctx.max_depth(1))
+            )?;
+        }
         for item in self.blocks.iter_handles() {
             writeln!(
                 f,
