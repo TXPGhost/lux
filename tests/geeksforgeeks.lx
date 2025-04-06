@@ -1,0 +1,39 @@
+-- example from geeksforgeeks (upcasting in java)
+-- https://www.geeksforgeeks.org/upcasting-vs-downcasting-in-java/
+
+IParent(Self: ()): (
+	name: String
+	method(self: Self, &io: IO): String
+)
+
+Parent: IParent(Parent) (
+	method(self: Parent, &io: IO): &io:println("Method from Parent")
+)
+
+Child: (
+	id: Int,
+	..IParent(Child) (
+		method(self: Child, &io: IO): &io:println("Method from Child")
+	)
+)
+
+main(&io: IO): {
+	parent: IParent(Child) = Child(name: "", id: 0)
+	parent.name := "geeksforgeeks"
+
+	&io:println(parent.name)
+	parent:method(&io) -- prints "Method from Parent"
+
+	-- can we do this?
+	-- not sure that we can, since this is against the static type
+	-- how would this be implemented?
+	child: Child = parent::Child
+	child.id := 1
+	&io:println(child.name)
+	&io:println(child.id)
+	child.method(&io) -- prints "Method from Child"
+
+	-- maybe we only allow upcasting for "possible" types
+	-- e.g. if `parent` had type `IParent(Child) | Child`, we could do it
+	-- this applies more for function arguments (locals are easy to figure out)
+}

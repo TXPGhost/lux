@@ -1,5 +1,3 @@
-use std::usize;
-
 use crate::{
     ast::{parse_tree::*, Node, Primitive},
     lexer::{Operator, OperatorChars},

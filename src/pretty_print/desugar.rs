@@ -143,13 +143,35 @@ impl PrettyPrint for Handle<Node<Expr>> {
                 field.val.pretty_print(f, state, context)?;
             }
             Expr::Struct(member_list) => {
+                if state.member_lists.get(*member_list).val.members.is_empty() {
+                    return write!(f, "()");
+                }
+
                 write!(f, "(")?;
-                member_list.pretty_print(f, state, context)?;
+                let context = context.multiline(true);
+                if context.is_multiline() {
+                    writeln!(f)?;
+                }
+                member_list.pretty_print(f, state, &mut context.indented())?;
+                if context.is_multiline() {
+                    self.indent(f, &context)?;
+                }
                 write!(f, ")")?;
             }
             Expr::Enum(member_list) => {
+                if state.member_lists.get(*member_list).val.members.is_empty() {
+                    return write!(f, "<>");
+                }
+
                 write!(f, "<")?;
-                member_list.pretty_print(f, state, context)?;
+                let context = context.multiline(true);
+                if context.is_multiline() {
+                    writeln!(f)?;
+                }
+                member_list.pretty_print(f, state, &mut context.indented())?;
+                if context.is_multiline() {
+                    self.indent(f, &context)?;
+                }
                 write!(f, ">")?;
             }
             Expr::Call(func, args) => {
@@ -160,12 +182,12 @@ impl PrettyPrint for Handle<Node<Expr>> {
             }
             Expr::Func(args, body) => {
                 write!(f, "(")?;
-                args.pretty_print(f, state, context)?;
+                args.pretty_print(f, state, &mut context.forbid_multiline())?;
                 write!(f, ") => ")?;
                 body.pretty_print(f, state, context)?;
             }
             Expr::Block(block) => {
-                block.pretty_print(f, state, context)?;
+                block.pretty_print(f, state, &mut context.multiline(true))?;
             }
             Expr::Array(array) => todo!(),
             Expr::ArrayType(len, ty) => {
@@ -289,6 +311,9 @@ impl PrettyPrint for Handle<Node<Block>> {
             return write!(f, "block${}", self.get_idx());
         }
         let block = &state.blocks.get(*self).val;
+        if block.stmts.is_empty() {
+            return write!(f, "{{}}");
+        }
         {
             let context = &mut context.indented();
             if context.is_multiline() {
