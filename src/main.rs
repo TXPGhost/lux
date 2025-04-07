@@ -15,7 +15,6 @@ use ast::{
     desugar::{Desugar, DesugarArena, DesugarError, Parent},
     parse_tree::Expr,
 };
-use interpreter::InterpretError;
 use lexer::{LexError, Lexer};
 use parser::{ParseError, Parser};
 
@@ -28,8 +27,8 @@ pub mod arena;
 /// The abstract syntax tree
 pub mod ast;
 
-/// Evaluates programs using the interpreter
-pub mod interpreter;
+/// Type checking module
+pub mod type_check;
 
 /// Tokenizes an input stream of text
 pub mod lexer;
@@ -39,9 +38,6 @@ pub mod parser;
 
 /// Pretty-prints an abstract syntax tree
 pub mod pretty_print;
-
-/// Checks whether values are subtypes/supertypes of one another
-pub mod type_checker;
 
 /// An error that can occur during testing
 #[derive(Debug)]
@@ -61,12 +57,6 @@ enum TestError {
 
     /// An identifier resolution error
     Resolve(LookupError),
-
-    /// An interpreter error at the simplify stage
-    Simplify(InterpretError),
-
-    /// An interpreter error at the evaluation stage of the `main` function
-    Eval(InterpretError),
 }
 
 struct TestResult {
@@ -179,12 +169,6 @@ fn main() {
                     TestError::Parse(e) => println!("{}: {:?}", "FAIL_PARSE".red(), e),
                     TestError::Desugar(e) => println!("{}: {:?}", "FAIL_DESUGAR".red(), e),
                     TestError::Resolve(e) => println!("{}: {:?}", "FAIL_RESOLVE".red(), e),
-                    TestError::Simplify(e) => {
-                        println!("{}: {:?}", "FAIL_SIMPLIFY".red(), e)
-                    }
-                    TestError::Eval(e) => {
-                        println!("{}: {:?}", "FAIL_EVAL".red(), e)
-                    }
                 }
             }
         }

@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    desugar::{self, DesugarArena},
+    desugar::{self, DesugarArena, MemberList},
     Node, Primitive,
 };
 
@@ -214,14 +214,14 @@ impl Flatten for Handle<Node<desugar::Expr>> {
     }
 }
 
-//impl Flatten for Handle<Node<desugar::MemberList>> {
-//    type Flattened = Node<MemberList>;
-//
-//    fn flatten(
-//        self,
-//        desugar_arena: &mut DesugarArena,
-//        flatten_arena: &mut FlattenContext,
-//    ) -> Result<Self::Flattened, FlattenError> {
-//        todo!()
-//    }
-//}
+impl Flatten for Handle<Node<desugar::MemberList>> {
+    type Flattened = Node<MemberList>;
+
+    fn flatten(
+        self,
+        desugar_arena: &mut DesugarArena,
+        flatten_arena: &mut FlattenContext,
+    ) -> Result<Self::Flattened, FlattenError> {
+        todo!()
+    }
+}

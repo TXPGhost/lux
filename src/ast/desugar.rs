@@ -10,9 +10,6 @@ pub mod resolve;
 /// Code to look up identifiers in the arena
 pub mod lookup;
 
-/// Assigns types to each expression
-pub mod type_check;
-
 /// A global pool of all desugared expressions, members, and blocks
 #[derive(Debug, Default)]
 pub struct DesugarArena {

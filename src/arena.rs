@@ -121,3 +121,42 @@ impl<T: Debug> Default for Arena<T> {
         Self { data: Vec::new() }
     }
 }
+
+/// A mapping from handles to `T` to values of type `U`
+#[derive(Debug)]
+pub struct ArenaMap<T, U> {
+    data: Vec<Option<U>>,
+    phantom: PhantomData<T>,
+}
+
+impl<T, U> ArenaMap<T, U> {
+    /// Constructs a new, empty [ArenaMap]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Inserts a value into the map
+    pub fn insert(&mut self, handle: Handle<T>, value: U) -> Option<U> {
+        let idx = handle.arena_idx;
+        while self.data.len() <= idx {
+            self.data.push(None);
+        }
+        let old = self.data[idx].take();
+        self.data[idx] = Some(value);
+        old
+    }
+
+    /// Returns the existing value in the map indexed by the given handle
+    pub fn get(&self, handle: Handle<T>) -> Option<&U> {
+        self.data.get(handle.arena_idx).and_then(|val| val.as_ref())
+    }
+}
+
+impl<T, U> Default for ArenaMap<T, U> {
+    fn default() -> Self {
+        Self {
+            data: Vec::new(),
+            phantom: PhantomData,
+        }
+    }
+}
