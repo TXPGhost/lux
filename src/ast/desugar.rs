@@ -98,8 +98,8 @@ pub enum Expr {
     /// An array expression
     Array(Node<Array>),
 
-    /// An array type expression
-    ArrayType(Option<Handle<Node<Expr>>>, Handle<Node<Expr>>),
+    /// An vector expression
+    Vector(Option<Handle<Node<Expr>>>, Handle<Node<Expr>>),
 
     /// A primitive expression
     Primitive(Primitive),
@@ -310,14 +310,14 @@ impl Desugar for Node<parse_tree::Expr> {
                 let elements = elements.desugar(arena, parent)?;
                 Ok(elements)
             }
-            parse_tree::Expr::ArrayType(len, ty) => {
+            parse_tree::Expr::Vector(len, ty) => {
                 let ty = ty.desugar(arena, parent)?;
                 match len {
                     Some(len) => {
                         let len = len.desugar(arena, parent)?;
-                        Ok(arena.exprs.add(Expr::ArrayType(Some(len), ty).node(loc)))
+                        Ok(arena.exprs.add(Expr::Vector(Some(len), ty).node(loc)))
                     }
-                    None => Ok(arena.exprs.add(Expr::ArrayType(None, ty).node(loc))),
+                    None => Ok(arena.exprs.add(Expr::Vector(None, ty).node(loc))),
                 }
             }
             parse_tree::Expr::Primitive(primitive) => {

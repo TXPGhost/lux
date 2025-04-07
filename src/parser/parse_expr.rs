@@ -281,8 +281,8 @@ impl Node<Expr> {
                         let ty = Node::<Expr>::parse(parser)?;
                         let loc = Loc::combine(loc, ty.loc);
                         match elements.val.len() {
-                            0 => Ok(Expr::ArrayType(None, Box::new(ty)).node(loc)),
-                            1 => Ok(Expr::ArrayType(
+                            0 => Ok(Expr::Vector(None, Box::new(ty)).node(loc)),
+                            1 => Ok(Expr::Vector(
                                 Some(Box::new(elements.val.pop().unwrap())),
                                 Box::new(ty),
                             )

@@ -65,7 +65,7 @@ impl AssignTypes for Handle<Node<Expr>> {
             Expr::Func(handle, handle1) => todo!("consteval func"),
             Expr::Block(handle) => todo!("consteval block"),
             Expr::Array(elements) => todo!("consteval array"),
-            Expr::ArrayType(handle, handle1) => todo!("consteval array type"),
+            Expr::Vector(handle, handle1) => todo!("consteval array type"),
             Expr::Primitive(primitive) => {
                 types.exprs.insert(self, Expr::Primitive(primitive.clone()));
                 Ok(())
@@ -75,11 +75,7 @@ impl AssignTypes for Handle<Node<Expr>> {
 }
 
 impl AssignTypes for Handle<Node<MemberList>> {
-    fn assign_types<'a>(
-        self,
-        arena: &'a DesugarArena,
-        types: &'a mut TypeArena,
-    ) -> Result<&'a Expr, TypeError> {
+    fn assign_types(self, arena: &DesugarArena, types: &mut TypeArena) -> Result<(), TypeError> {
         todo!()
     }
 }

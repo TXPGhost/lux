@@ -60,7 +60,7 @@ impl HasPrec for Expr {
             | Expr::Enum(_)
             | Expr::Array(_)
             | Expr::Block(_)
-            | Expr::ArrayType(_, _) => 10,
+            | Expr::Vector(_, _) => 10,
             Expr::Ident(_) | Expr::Primitive(_) => 11,
             _ => todo!("prec of expr {:?}", self),
         }
@@ -190,7 +190,7 @@ impl PrettyPrint for Expr {
                 write!(f, "}}")?;
             }
             Expr::Array(elements) => todo!(),
-            Expr::ArrayType(len, ty) => {
+            Expr::Vector(len, ty) => {
                 write!(f, "[")?;
                 if let Some(len) = len {
                     len.val.pretty_print(f, state, context)?;

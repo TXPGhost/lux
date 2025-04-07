@@ -54,8 +54,8 @@ pub enum Expr {
     /// An array (e.g. `[1, 2, 3, 4, 5]`)
     Array(Node<Vec<Node<Expr>>>),
 
-    /// An array type (e.g. `[4]I32` or `[]String`)
-    ArrayType(Option<Box<Node<Expr>>>, Box<Node<Expr>>),
+    /// A vector type (e.g. `[4]I32` or `[]String`)
+    Vector(Option<Box<Node<Expr>>>, Box<Node<Expr>>),
 
     /// A builtin primitive (e.g. numeric types)
     Primitive(Primitive),

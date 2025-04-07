@@ -194,7 +194,7 @@ impl Flatten for Handle<Node<desugar::Stmt>> {
             desugar::Expr::Func(handle, handle1) => todo!("flatten: func"),
             desugar::Expr::Block(handle) => todo!("flatten: block"),
             desugar::Expr::Array(node) => todo!("flatten: array"),
-            desugar::Expr::ArrayType(handle, handle1) => todo!("flatten: array type"),
+            desugar::Expr::Vector(handle, handle1) => todo!("flatten: array type"),
             desugar::Expr::Primitive(primitive) => todo!("flatten: primitive"),
         }
 

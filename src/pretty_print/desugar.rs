@@ -190,7 +190,7 @@ impl PrettyPrint for Handle<Node<Expr>> {
                 block.pretty_print(f, state, &mut context.multiline(true))?;
             }
             Expr::Array(array) => todo!(),
-            Expr::ArrayType(len, ty) => {
+            Expr::Vector(len, ty) => {
                 write!(f, "[")?;
                 if let Some(len) = len {
                     len.pretty_print(f, state, context)?;
