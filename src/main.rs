@@ -20,6 +20,7 @@ use parser::{ParseError, Parser};
 
 use colored::Colorize;
 use pretty_print::PrettyPrint;
+use type_check::{AssignTypes, TypeArena, TypeError};
 
 /// An arena data structure
 pub mod arena;
@@ -57,6 +58,9 @@ enum TestError {
 
     /// An identifier resolution error
     Resolve(LookupError),
+
+    /// A type checking error
+    Type(TypeError),
 }
 
 struct TestResult {
@@ -83,6 +87,10 @@ fn test_file(path: PathBuf) -> Result<TestResult, TestError> {
         .map_err(TestError::Resolve)?;
     let desugared_str = format!("{}", desugared.printable(&arena));
     let arena_str = format!("{}", arena.printable(&()));
+    let mut types = TypeArena::new_empty();
+    desugared
+        .assign_types(&arena, &mut types)
+        .map_err(TestError::Type)?;
     //let flattened = desugared.flatten();
     Ok(TestResult {
         return_expr: None,
@@ -169,6 +177,7 @@ fn main() {
                     TestError::Parse(e) => println!("{}: {:?}", "FAIL_PARSE".red(), e),
                     TestError::Desugar(e) => println!("{}: {:?}", "FAIL_DESUGAR".red(), e),
                     TestError::Resolve(e) => println!("{}: {:?}", "FAIL_RESOLVE".red(), e),
+                    TestError::Type(e) => println!("{}: {:?}", "FAIL_TYPECHECK".red(), e),
                 }
             }
         }

@@ -37,21 +37,23 @@ impl TypeComparison {
     }
 }
 
+/// Trait that indicates two expressions can have their types compared
 pub trait TypeCompare {
+    /// Compares the types of two expressions, returning a [TypeComparison]
     fn type_compare(self, other: Self, arena: &DesugarArena, types: &TypeArena) -> TypeComparison;
 }
 
 impl TypeCompare for Handle<Node<Expr>> {
-    fn type_compare(self, other: Self, arena: &DesugarArena, types: &TypeArena) -> TypeComparison {
-        let lhs = &types.exprs.get(self).unwrap();
-        let rhs = &types.exprs.get(other).unwrap();
+    fn type_compare(self, other: Self, _arena: &DesugarArena, types: &TypeArena) -> TypeComparison {
+        let lhs = &types.types.get(self).unwrap();
+        let rhs = &types.types.get(other).unwrap();
         match (lhs, rhs) {
             (Expr::Ident(ident), _) => match ident.val {
-                Ident::Resolved(expr) => expr.type_compare(other, arena, types),
+                Ident::Resolved(expr) => expr.type_compare(other, _arena, types),
                 _ => unreachable!("all identifiers should be resolved by now"),
             },
             (_, Expr::Ident(ident)) => match ident.val {
-                Ident::Resolved(expr) => self.type_compare(expr, arena, types),
+                Ident::Resolved(expr) => self.type_compare(expr, _arena, types),
                 _ => unreachable!("all identifiers should be resolved by now"),
             },
             _ => todo!("type comparison"),

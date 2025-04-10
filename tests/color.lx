@@ -1,0 +1,18 @@
+Color ${
+	red   Int
+	green Int
+	blue  Int
+	f     (_ Color) Color
+
+	rot(self Color) Color {
+		red   self.green
+		green self.blue
+		blue  self.red
+		f     self.f
+	}
+}
+
+main() {
+	color = Color { red 10, green 20, blue 30, f Color.rot }
+	color.f(color).red
+}

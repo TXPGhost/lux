@@ -44,9 +44,17 @@ impl DesugarArena {
             .unloc(),
         );
 
+        let assert_eq = members.add(
+            Member {
+                field: Field::Ident(Ident::TIdent("assert_eq".into()).unloc()).unloc(),
+                expr: exprs.add(Expr::Primitive(Primitive::Assert(Assertion::Eq)).unloc()),
+            }
+            .unloc(),
+        );
+
         let member_list = member_lists.add(
             MemberList {
-                members: vec![u64ty],
+                members: vec![u64ty, assert_eq],
                 parent: None,
             }
             .unloc(),
@@ -86,7 +94,7 @@ pub enum Expr {
     /// A handle to an enum expression
     Enum(Handle<Node<MemberList>>),
 
-    /// A call expression
+    /// A call expression (either a function or constructor)
     Call(Handle<Node<Expr>>, Handle<Node<MemberList>>),
 
     /// A function expression

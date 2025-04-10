@@ -1,0 +1,11 @@
+basedOnStyle "WebKit"
+breakBeforeBraces "Allman"
+braceWrapping {
+	afterEnum false
+}
+indentCaseLabels true
+alignConsecutiveAssignments true
+alignConsecutiveDeclarations true
+alignEscapedNewlines true
+alignTrailingComments true
+allowShortFunctionsOnASingleLine false

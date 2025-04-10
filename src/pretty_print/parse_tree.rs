@@ -1,5 +1,5 @@
 use crate::{
-    ast::{parse_tree::*, Node, Primitive},
+    ast::{parse_tree::*, Assertion, Node, Primitive},
     lexer::{Operator, OperatorChars},
 };
 
@@ -393,7 +393,10 @@ impl PrettyPrint for Primitive {
             Primitive::True => todo!(),
             Primitive::False => todo!(),
             Primitive::DebugPrint => write!(f, "%debug_print"),
-            Primitive::Assert(assertion) => todo!(),
+            Primitive::Assert(Assertion::Eq) => write!(f, "%assert_eq"),
+            Primitive::Assert(Assertion::Ne) => write!(f, "%assert_ne"),
+            Primitive::Assert(Assertion::Subtype) => write!(f, "%assert_subtype"),
+            Primitive::Assert(Assertion::Supertype) => write!(f, "%assert_supertype"),
             Primitive::Unop(operator) | Primitive::Binop(operator) => match operator {
                 Operator::Dot => unreachable!(),
                 Operator::Plus => write!(f, "%add"),
