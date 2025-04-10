@@ -45,8 +45,10 @@ pub trait TypeCompare {
 
 impl TypeCompare for Handle<Node<Expr>> {
     fn type_compare(self, other: Self, _arena: &DesugarArena, types: &TypeArena) -> TypeComparison {
-        let lhs = &types.types.get(self).unwrap();
-        let rhs = &types.types.get(other).unwrap();
+        let lhs = types.map.get(self).unwrap();
+        let rhs = types.map.get(other).unwrap();
+        let lhs = &types.arena.exprs.get(*lhs).val;
+        let rhs = &types.arena.exprs.get(*rhs).val;
         match (lhs, rhs) {
             (Expr::Ident(ident), _) => match ident.val {
                 Ident::Resolved(expr) => expr.type_compare(other, _arena, types),

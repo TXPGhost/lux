@@ -8,6 +8,14 @@ pub struct Handle<T> {
 }
 
 impl<T> Handle<T> {
+    /// Constructs a new handle from an index (use this carefully)
+    pub fn from_idx(arena_idx: usize) -> Self {
+        Self {
+            arena_idx,
+            phantom: PhantomData,
+        }
+    }
+
     /// Returns the arena index associated with this handle
     pub fn get_idx(&self) -> usize {
         self.arena_idx

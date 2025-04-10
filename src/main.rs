@@ -88,7 +88,7 @@ fn test_file(path: PathBuf) -> Result<TestResult, TestError> {
     let arena_str = format!("{}", arena.printable(&()));
     ast.resolve(&mut arena, prelude)
         .map_err(TestError::Resolve)?;
-    let mut types = TypeArena::new_empty();
+    let mut types = TypeArena::new();
     ast.assign_types(&arena, &mut types)
         .map_err(TestError::Type)?;
     //let flattened = desugared.flatten();

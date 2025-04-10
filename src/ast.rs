@@ -31,8 +31,16 @@ impl<T: Clone + Debug> Node<T> {
     }
 }
 
+impl<T: Clone + Debug + PartialEq> PartialEq for Node<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.val == other.val && self.loc == other.loc
+    }
+}
+
+impl<T: Clone + Debug + PartialEq + Eq> Eq for Node<T> {}
+
 /// A source file location "box" given by a range of lines and columns
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Loc {
     /// The minimum line number of the box
     pub line_min: usize,
