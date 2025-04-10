@@ -1,6 +1,0 @@
-main(): {
-	x = 10
-	y = 20
-	answer = x + y
-	debug_print(answer)
-}

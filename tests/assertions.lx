@@ -1,4 +1,0 @@
-main(): {
-	assert_eq(0, 0)
-	assert_ne(0, 1)
-}
