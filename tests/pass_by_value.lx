@@ -13,10 +13,11 @@ main(): {
 	assert_eq(x, 42)
 }
 
-increment(x: U64):
+increment(x: U64): {
 	x = x + 1
+}
 
-main():
+main(): {
 	x = 42
 
 	increment(x)
@@ -25,3 +26,4 @@ main():
 
 	debug_print(x)
 	assert_eq(x, 42)
+}

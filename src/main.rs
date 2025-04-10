@@ -10,7 +10,7 @@ use std::{
 
 use ast::{
     desugar::{lookup::LookupError, resolve::Resolve},
-    Node,
+    parse_tree, Node,
 };
 use ast::{
     desugar::{Desugar, DesugarArena, DesugarError, Parent},
@@ -64,42 +64,90 @@ enum TestError {
     Type(TypeError),
 }
 
+#[derive(Default)]
 struct TestResult {
     return_expr: Option<Node<Expr>>,
-    parse_tree_str: String,
-    desugared_str: String,
-    arena_str: String,
-    resolved_arena: DesugarArena,
+    parse_tree_str: Option<String>,
+    desugared_str: Option<String>,
+    arena_str: Option<String>,
+    resolved_arena: Option<DesugarArena>,
+    err: Option<TestError>,
 }
 
-fn test_file(path: PathBuf) -> Result<TestResult, TestError> {
-    let mut file = File::open(path).map_err(TestError::Io)?;
-    let lexer = Lexer::new_from_file(&mut file).map_err(TestError::Io)?;
-    let tokens = lexer.tokenize().map_err(TestError::Lex)?;
+fn test_file(path: PathBuf) -> TestResult {
+    let mut result = TestResult::default();
+
+    let file = File::open(path);
+    let mut file = match file {
+        Ok(file) => file,
+        Err(err) => {
+            result.err = Some(TestError::Io(err));
+            return result;
+        }
+    };
+
+    let lexer = Lexer::new_from_file(&mut file);
+    let lexer = match lexer {
+        Ok(lexer) => lexer,
+        Err(err) => {
+            result.err = Some(TestError::Io(err));
+            return result;
+        }
+    };
+
+    let tokens = lexer.tokenize();
+    let tokens = match tokens {
+        Ok(tokens) => tokens,
+        Err(err) => {
+            result.err = Some(TestError::Lex(err));
+            return result;
+        }
+    };
+
     let mut parser = Parser::new(&tokens);
-    let parse_tree = parser.parse().map_err(TestError::Parse)?;
-    let parse_tree_str = format!("{}", parse_tree.val.printable(&()));
+    let parse_tree = parser.parse();
+    let parse_tree = match parse_tree {
+        Ok(parse_tree) => parse_tree,
+        Err(err) => {
+            result.err = Some(TestError::Parse(err));
+            return result;
+        }
+    };
+
+    result.parse_tree_str = Some(format!("{}", parse_tree.val.printable(&())));
     let (mut arena, prelude) = DesugarArena::new_prelude();
-    let ast = parse_tree
-        .desugar(&mut arena, Some(prelude))
-        .map_err(TestError::Desugar)?;
-    ast.resolve(&mut arena, Parent::MemberList(ast))
-        .map_err(TestError::Resolve)?;
-    let desugared_str = format!("{}", ast.printable(&arena));
-    let arena_str = format!("{}", arena.printable(&()));
-    ast.resolve(&mut arena, prelude)
-        .map_err(TestError::Resolve)?;
+    let ast = parse_tree.desugar(&mut arena, Some(prelude));
+    let ast = match ast {
+        Ok(ast) => ast,
+        Err(err) => {
+            result.err = Some(TestError::Desugar(err));
+            return result;
+        }
+    };
+
+    result.desugared_str = Some(format!("{}", ast.printable(&arena)));
+    result.arena_str = Some(format!("{}", arena.printable(&())));
+
+    match ast.resolve(&mut arena, Parent::MemberList(ast)) {
+        Ok(()) => (),
+        Err(err) => {
+            result.err = Some(TestError::Resolve(err));
+            return result;
+        }
+    };
+
+    result.resolved_arena = Some(arena.clone());
+
     let mut types = TypeArena::new();
-    ast.assign_types(&arena, &mut types)
-        .map_err(TestError::Type)?;
-    //let flattened = desugared.flatten();
-    Ok(TestResult {
-        return_expr: None,
-        parse_tree_str,
-        desugared_str,
-        arena_str,
-        resolved_arena: arena,
-    })
+    match ast.assign_types(&arena, &mut types) {
+        Ok(()) => (),
+        Err(err) => {
+            result.err = Some(TestError::Type(err));
+            return result;
+        }
+    };
+
+    result
 }
 
 fn main() {
@@ -139,40 +187,49 @@ fn main() {
         );
 
         // run the test and print results
-        match test_file(path) {
-            Ok(result) => {
-                if !run_all {
-                    if let Some(return_expr) = result.return_expr {
-                        println!("\t==> {:?}", return_expr.val);
-                    }
-                }
+        let result = test_file(path);
 
+        if !run_all {
+            if let Some(return_expr) = result.return_expr {
+                println!("\t==> {:?}", return_expr.val);
+            }
+        }
+
+        if !run_all {
+            println!();
+            if let Some(parse_tree_str) = result.parse_tree_str {
+                println!(
+                    "\n{}\n\n{}",
+                    "Parse Tree".yellow(),
+                    parse_tree_str.bright_black()
+                );
+            }
+            if let Some(desugared_str) = result.desugared_str {
+                println!(
+                    "\n{}\n\n{}",
+                    "Desugared".yellow(),
+                    desugared_str.bright_black()
+                );
+            }
+            if let Some(arena_str) = result.arena_str {
+                println!(
+                    "\n{}\n\n{}",
+                    "Resolved Arena".yellow(),
+                    arena_str.bright_black()
+                );
+            }
+        }
+
+        match result.err {
+            None => {
                 pass += 1;
                 total += 1;
                 println!("{}", "PASS".green());
-
-                if !run_all {
-                    println!(
-                        "\n{}\n\n{}",
-                        "Parse Tree".yellow(),
-                        result.parse_tree_str.bright_black()
-                    );
-                    println!(
-                        "\n{}\n\n{}",
-                        "Desugared".yellow(),
-                        result.desugared_str.bright_black()
-                    );
-                    println!(
-                        "\n{}\n\n{}",
-                        "Resolved Arena".yellow(),
-                        result.arena_str.bright_black()
-                    );
-                }
             }
-            Err(e) => {
+            Some(err) => {
                 fail += 1;
                 total += 1;
-                match e {
+                match err {
                     TestError::Io(e) => println!("{}: {:?}", "FAIL_IO".red(), e),
                     TestError::Lex(e) => println!("{}: {:?}", "FAIL_LEX".red(), e),
                     TestError::Parse(e) => println!("{}: {:?}", "FAIL_PARSE".red(), e),
@@ -182,6 +239,10 @@ fn main() {
                 }
             }
         }
+    }
+
+    if total == 0 {
+        println!("{}", "NO TESTS RUN".red());
     }
 
     // summarize results at the end

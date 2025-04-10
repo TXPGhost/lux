@@ -14,7 +14,7 @@ pub mod lookup;
 pub mod prelude;
 
 /// A global pool of all desugared expressions, members, and blocks
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct DesugarArena {
     /// A global arena of all member list definitions
     pub member_lists: Arena<Node<MemberList>>,
@@ -81,6 +81,9 @@ pub enum Parent {
 
     /// A handle to a parent of type [Block]
     Block(Handle<Node<Block>>),
+
+    /// A handle to a parent function argument list of type [MemberList]
+    Func(Handle<Node<MemberList>>),
 }
 
 /// A block of code
@@ -289,7 +292,8 @@ impl Desugar for Node<parse_tree::Expr> {
             }
             parse_tree::Expr::Func(args, body) => {
                 let args = args.desugar(arena, parent)?;
-                let body = body.desugar(arena, parent)?;
+                let args_parent = Parent::Func(args);
+                let body = body.desugar(arena, Some(args_parent))?;
                 Ok(arena.exprs.add(Expr::Func(args, body).node(loc)))
             }
             parse_tree::Expr::Block(stmts) => {

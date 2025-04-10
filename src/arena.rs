@@ -53,7 +53,7 @@ impl<T> Hash for Handle<T> {
 }
 
 /// An arena of items of type `T` referenced by index
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Arena<T: Debug> {
     data: Vec<Option<T>>,
 }

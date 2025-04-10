@@ -22,6 +22,13 @@ impl DesugarArena {
             }
             .unloc(),
         );
+        let assert_ne = members.add(
+            Member {
+                field: Field::Ident(Ident::VIdent("assert_ne".into()).unloc()).unloc(),
+                expr: exprs.add(Expr::Primitive(Primitive::Assert(Assertion::Ne)).unloc()),
+            }
+            .unloc(),
+        );
         let debug_print = members.add(
             Member {
                 field: Field::Ident(Ident::VIdent("debug_print".into()).unloc()).unloc(),
@@ -32,7 +39,7 @@ impl DesugarArena {
 
         let member_list = member_lists.add(
             MemberList {
-                members: vec![u64ty, assert_eq, debug_print],
+                members: vec![u64ty, assert_eq, assert_ne, debug_print],
                 parent: None,
             }
             .unloc(),

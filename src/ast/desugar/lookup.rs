@@ -27,8 +27,9 @@ impl Lookup for Parent {
         }
 
         match self {
-            Parent::MemberList(members) => members.lookup(arena, ident),
+            Parent::MemberList(member_list) => member_list.lookup(arena, ident),
             Parent::Block(block) => block.lookup(arena, ident),
+            Parent::Func(member_list) => member_list.lookup(arena, ident),
         }
     }
 }

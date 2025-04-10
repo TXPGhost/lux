@@ -237,8 +237,8 @@ impl AssignTypes for Handle<Node<Expr>> {
                         types.map.insert(self, unit);
                         Ok(())
                     }
-                    Expr::Primitive(Primitive::DebugPrint) => {
-                        // debug print returns the unit type
+                    Expr::Primitive(Primitive::DebugPrint | Primitive::Assert(_)) => {
+                        // these functions return unit type
                         let unit_members = types.arena.member_lists.add(
                             MemberList {
                                 members: Vec::new(),
