@@ -99,7 +99,8 @@ pub struct Block {
 /// An array expression
 #[derive(Clone, Debug)]
 pub struct Array {
-    elements: Vec<Handle<Node<Expr>>>,
+    /// The array elements
+    pub elements: Vec<Handle<Node<Expr>>>,
 }
 
 /// A list of members (named or positional)

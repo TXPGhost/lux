@@ -65,6 +65,6 @@ impl TypeCompare for Handle<Node<Expr>> {
 
 impl TypeCompare for Handle<Node<MemberList>> {
     fn type_compare(self, other: Self, arena: &DesugarArena, types: &TypeArena) -> TypeComparison {
-        todo!()
+        todo!("type compare member list")
     }
 }

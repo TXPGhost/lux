@@ -125,9 +125,9 @@ impl Node<Expr> {
             // type difference (`\`)
             2 => Self::parse_binop_left_assoc(parser, prec, &[Operator::Backslash]),
             // type union (`|`)
-            3 => Self::parse_binop_right_assoc(parser, prec, &[Operator::Or]),
+            3 => Self::parse_binop_right_assoc(parser, prec, &[Operator::Union]),
             // type intersection (`&`)
-            4 => Self::parse_binop_right_assoc(parser, prec, &[Operator::And]),
+            4 => Self::parse_binop_right_assoc(parser, prec, &[Operator::Intersection]),
             // addition and subtraction (`+`, `-`, `++`)
             5 => Self::parse_binop_left_assoc(
                 parser,
@@ -155,7 +155,7 @@ impl Node<Expr> {
                     Operator::Plus,
                     Operator::Minus,
                     Operator::Length,
-                    Operator::And,
+                    Operator::Intersection,
                     Operator::Times,
                 ],
             ),

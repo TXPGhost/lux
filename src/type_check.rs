@@ -17,11 +17,17 @@ pub struct TypeArena {
     map: ArenaMap<Node<Expr>, Handle<Node<Expr>>>,
     arena: DesugarArena,
     unit: Handle<Node<Expr>>,
+    empty: Handle<Node<Expr>>,
     discovered_exprs: HashSet<Handle<Node<Expr>>>,
     discovered_member_lists: HashSet<Handle<Node<MemberList>>>,
     discovered_blocks: HashSet<Handle<Node<Block>>>,
     discovered_members: HashSet<Handle<Node<Member>>>,
     discovered_stmts: HashSet<Handle<Node<Stmt>>>,
+    recursive_exprs: HashSet<Handle<Node<Expr>>>,
+    recursive_member_lists: HashSet<Handle<Node<MemberList>>>,
+    recursive_blocks: HashSet<Handle<Node<Block>>>,
+    recursive_members: HashSet<Handle<Node<Member>>>,
+    recursive_stmts: HashSet<Handle<Node<Stmt>>>,
 }
 
 impl TypeArena {
@@ -31,14 +37,20 @@ impl TypeArena {
             map: ArenaMap::default(),
             arena: DesugarArena::default(),
             unit: Handle::from_idx(0),
+            empty: Handle::from_idx(1),
             discovered_exprs: HashSet::new(),
             discovered_member_lists: HashSet::new(),
             discovered_blocks: HashSet::new(),
             discovered_members: HashSet::new(),
             discovered_stmts: HashSet::new(),
+            recursive_exprs: HashSet::new(),
+            recursive_member_lists: HashSet::new(),
+            recursive_blocks: HashSet::new(),
+            recursive_members: HashSet::new(),
+            recursive_stmts: HashSet::new(),
         };
 
-        // add the unit type
+        // add the unit and empty types
         let unit_members = types.arena.member_lists.add(
             MemberList {
                 members: Vec::new(),
@@ -46,8 +58,11 @@ impl TypeArena {
             }
             .unloc(),
         );
-
-        let unit = types.arena.exprs.add(Expr::Struct(unit_members).unloc());
+        types.arena.exprs.add(Expr::Struct(unit_members).unloc());
+        types
+            .arena
+            .exprs
+            .add(Expr::Primitive(Primitive::Empty).unloc());
 
         types
     }
@@ -84,7 +99,7 @@ pub enum TypeError {
     IllegalBinopType(Node<Expr>, Operator),
 
     /// A part of the typechecker is unimplemented
-    Unimplemented(&'static str),
+    Unimplemented(String),
 }
 
 /// Indicates that types can be assigned to an expression
@@ -99,7 +114,9 @@ impl AssignTypes for Handle<Node<Expr>> {
             return Ok(());
         }
         if types.discovered_exprs.contains(&self) {
-            return Err(TypeError::Unimplemented("todo recursion expr"));
+            types.recursive_exprs.insert(self);
+            types.map.insert(self, types.empty);
+            return Ok(());
         }
         types.discovered_exprs.insert(self);
         let expr = &arena.exprs.get(self).val;
@@ -196,10 +213,10 @@ impl AssignTypes for Handle<Node<Expr>> {
                         fbody.assign_types(arena, types)?;
 
                         // make sure the argument types match
-                        let comparison = args.type_compare(fargs, arena, types);
-                        if !comparison.is_subtype() {
-                            return Err(TypeError::FunctionArgumentMismatch);
-                        }
+                        // let comparison = args.type_compare(fargs, arena, types);
+                        // if !comparison.is_subtype() {
+                        //     return Err(TypeError::FunctionArgumentMismatch);
+                        // }
 
                         // the type of the call expression equals the (return) type of the function body
                         types.map.insert(self, *types.map.get(fbody).unwrap());
@@ -311,8 +328,15 @@ impl AssignTypes for Handle<Node<Expr>> {
                 }
                 Ok(())
             }
-            Expr::Array(elements) => todo!("typecheck array"),
-            Expr::Vector(handle, handle1) => todo!("typecheck array type"),
+            Expr::Array(elements) => {
+                elements.assign_types(arena, types);
+                for elem in &elements.val.elements {}
+                Ok(())
+            }
+            Expr::Vector(handle, handle1) => {
+                // TODO
+                Ok(())
+            }
             Expr::Primitive(primitive) => {
                 let primitive = types
                     .arena
@@ -328,7 +352,8 @@ impl AssignTypes for Handle<Node<Expr>> {
 impl AssignTypes for Handle<Node<MemberList>> {
     fn assign_types(self, arena: &DesugarArena, types: &mut TypeArena) -> Result<(), TypeError> {
         if types.discovered_member_lists.contains(&self) {
-            return Err(TypeError::Unimplemented("todo recursion"));
+            types.recursive_member_lists.insert(self);
+            return Ok(());
         }
         types.discovered_member_lists.insert(self);
         let member_list = &arena.member_lists.get(self).val;
@@ -342,7 +367,8 @@ impl AssignTypes for Handle<Node<MemberList>> {
 impl AssignTypes for Handle<Node<Block>> {
     fn assign_types(self, arena: &DesugarArena, types: &mut TypeArena) -> Result<(), TypeError> {
         if types.discovered_blocks.contains(&self) {
-            return Err(TypeError::Unimplemented("todo recursion"));
+            types.recursive_blocks.insert(self);
+            return Ok(());
         }
         types.discovered_blocks.insert(self);
         let block = &arena.blocks.get(self).val;
@@ -356,7 +382,8 @@ impl AssignTypes for Handle<Node<Block>> {
 impl AssignTypes for Handle<Node<Member>> {
     fn assign_types(self, arena: &DesugarArena, types: &mut TypeArena) -> Result<(), TypeError> {
         if types.discovered_members.contains(&self) {
-            return Err(TypeError::Unimplemented("todo recursion"));
+            types.recursive_members.insert(self);
+            return Ok(());
         }
         types.discovered_members.insert(self);
         let member = &arena.members.get(self).val;
@@ -368,12 +395,22 @@ impl AssignTypes for Handle<Node<Member>> {
 impl AssignTypes for Handle<Node<Stmt>> {
     fn assign_types(self, arena: &DesugarArena, types: &mut TypeArena) -> Result<(), TypeError> {
         if types.discovered_stmts.contains(&self) {
-            return Err(TypeError::Unimplemented("todo recursion"));
+            types.recursive_stmts.insert(self);
+            return Ok(());
         }
         types.discovered_stmts.insert(self);
         let stmt = &arena.stmts.get(self).val;
         stmt.ty.assign_types(arena, types)?;
         stmt.value.assign_types(arena, types)?;
+        Ok(())
+    }
+}
+
+impl AssignTypes for &Node<Array> {
+    fn assign_types(self, arena: &DesugarArena, types: &mut TypeArena) -> Result<(), TypeError> {
+        for elem in &self.val.elements {
+            elem.assign_types(arena, types)?;
+        }
         Ok(())
     }
 }

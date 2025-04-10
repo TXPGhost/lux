@@ -40,8 +40,8 @@ impl HasPrec for Binop {
             | Operator::GreaterEquals
             | Operator::LessEquals => 1,
             Operator::Backslash => 2,
-            Operator::Or => 3,
-            Operator::And => 4,
+            Operator::Union => 3,
+            Operator::Intersection => 4,
             Operator::Plus | Operator::Minus | Operator::Concat => 5,
             Operator::Times | Operator::Divide | Operator::Modulo | Operator::Repeat => 6,
             Operator::ThinArrow => 7,
@@ -385,6 +385,7 @@ impl PrettyPrint for Primitive {
         context: &mut Self::Context,
     ) -> std::fmt::Result {
         match self {
+            Primitive::Empty => write!(f, "|"),
             Primitive::U64Ty => write!(f, "%U64"),
             Primitive::U64Val(val) => write!(f, "%{}_U64", val),
             Primitive::CharTy => todo!(),
@@ -406,8 +407,8 @@ impl PrettyPrint for Primitive {
                 Operator::Modulo => write!(f, "%mod"),
                 Operator::Concat => write!(f, "%concat"),
                 Operator::Repeat => write!(f, "%repeat"),
-                Operator::And => unreachable!(),
-                Operator::Or => unreachable!(),
+                Operator::Intersection => unreachable!(),
+                Operator::Union => unreachable!(),
                 Operator::Not => write!(f, "%not"),
                 Operator::Backslash => unreachable!(),
                 Operator::ThinArrow => unreachable!(),

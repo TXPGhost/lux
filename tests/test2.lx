@@ -1,4 +1,5 @@
 min(x: U64, y: U64): U64
+max(x: U64, y: U64): U64
 
 Char: ()
 String: []Char

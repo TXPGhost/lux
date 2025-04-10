@@ -111,6 +111,9 @@ impl<T: Clone + Debug> NodeExt for T {}
 /// A compiler-intrinsic primitive type
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Primitive {
+    /// The empty type (union of none)
+    Empty,
+
     /// The unsigned 64-bit integer type
     U64Ty,
 

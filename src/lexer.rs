@@ -510,10 +510,10 @@ pub enum Operator {
     Concat,
     /// The array repeat operator `**`
     Repeat,
-    /// The and operator `&`
-    And,
-    /// The or operator `|`
-    Or,
+    /// The intersection operator `&`
+    Intersection,
+    /// The union operator `|`
+    Union,
     /// The not operator `!`
     Not,
     /// The backslash operator `\`
@@ -556,8 +556,8 @@ impl Operator {
             Operator::Modulo => OperatorChars::Single('%'),
             Operator::Concat => OperatorChars::Double('+', '+'),
             Operator::Repeat => OperatorChars::Double('*', '*'),
-            Operator::And => OperatorChars::Single('&'),
-            Operator::Or => OperatorChars::Single('|'),
+            Operator::Intersection => OperatorChars::Single('&'),
+            Operator::Union => OperatorChars::Single('|'),
             Operator::Not => OperatorChars::Single('!'),
             Operator::Backslash => OperatorChars::Single('\\'),
             Operator::ThinArrow => OperatorChars::Double('-', '>'),
