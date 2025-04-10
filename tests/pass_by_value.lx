@@ -12,3 +12,16 @@ main(): {
 	debug_print(x)
 	assert_eq(x, 42)
 }
+
+increment(x: U64):
+	x = x + 1
+
+main():
+	x = 42
+
+	increment(x)
+	increment(x)
+	increment(x)
+
+	debug_print(x)
+	assert_eq(x, 42)

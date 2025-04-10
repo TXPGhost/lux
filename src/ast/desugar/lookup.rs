@@ -22,6 +22,10 @@ impl Lookup for Parent {
         arena: &DesugarArena,
         ident: &Node<Ident>,
     ) -> Result<Handle<Node<Expr>>, LookupError> {
+        if let Ident::Resolved(expr) = ident.val {
+            return Ok(expr);
+        }
+
         match self {
             Parent::MemberList(members) => members.lookup(arena, ident),
             Parent::Block(block) => block.lookup(arena, ident),
@@ -35,6 +39,14 @@ impl Lookup for Handle<Node<Block>> {
         arena: &DesugarArena,
         ident: &Node<Ident>,
     ) -> Result<Handle<Node<Expr>>, LookupError> {
+        if let Ident::Resolved(expr) = ident.val {
+            return Ok(expr);
+        }
+
+        if let Ident::Resolved(expr) = ident.val {
+            return Ok(expr);
+        }
+
         // TODO: shadowing
         let block = arena.blocks.get(*self);
         for stmt in &block.val.stmts {
@@ -49,7 +61,10 @@ impl Lookup for Handle<Node<Block>> {
 
         match block.val.parent {
             Some(parent) => parent.lookup(arena, ident),
-            None => Err(LookupError("unable to resolve identifier", ident.clone())),
+            None => Err(LookupError(
+                "unable to resolve identifier in block",
+                ident.clone(),
+            )),
         }
     }
 }
@@ -60,6 +75,10 @@ impl Lookup for Handle<Node<MemberList>> {
         arena: &DesugarArena,
         ident: &Node<Ident>,
     ) -> Result<Handle<Node<Expr>>, LookupError> {
+        if let Ident::Resolved(expr) = ident.val {
+            return Ok(expr);
+        }
+
         let members = arena.member_lists.get(*self);
         for member in &members.val.members {
             let member = arena.members.get(*member);
@@ -72,7 +91,10 @@ impl Lookup for Handle<Node<MemberList>> {
 
         match members.val.parent {
             Some(parent) => parent.lookup(arena, ident),
-            None => Err(LookupError("unable to resolve identifier", ident.clone())),
+            None => Err(LookupError(
+                "unable to resolve identifier in member list",
+                ident.clone(),
+            )),
         }
     }
 }

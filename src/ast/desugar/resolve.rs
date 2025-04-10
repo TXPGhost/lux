@@ -33,6 +33,13 @@ impl Resolve for Handle<Node<Expr>> {
                 args.resolve(arena, parent)?;
                 Ok(())
             }
+            Expr::Func(args, body) => {
+                let args = *args;
+                let body = *body;
+                args.resolve(arena, parent)?;
+                body.resolve(arena, parent)?;
+                Ok(())
+            }
             _ => Ok(()),
         }
     }
@@ -56,7 +63,8 @@ impl Resolve for Handle<Node<Block>> {
         let stmts = block.val.stmts.clone();
         let parent = Parent::Block(self);
         for stmt in stmts {
-            stmt.resolve(arena, parent)?;
+            arena.stmts.get(stmt).val.ty.resolve(arena, parent)?;
+            arena.stmts.get(stmt).val.value.resolve(arena, parent)?;
         }
         Ok(())
     }
@@ -66,17 +74,5 @@ impl Resolve for Handle<Node<Member>> {
     fn resolve(self, arena: &mut DesugarArena, parent: Parent) -> Result<(), LookupError> {
         let member = arena.members.get(self);
         member.val.expr.resolve(arena, parent)
-    }
-}
-
-impl Resolve for Handle<Node<Stmt>> {
-    fn resolve(self, arena: &mut DesugarArena, parent: Parent) -> Result<(), LookupError> {
-        //let stmt = arena.stmts.get(self);
-        //if let Some(ident) = stmt.val.ident {
-        //    ident.resolve(arena, parent)?;
-        //}
-        //stmt.val.ty.resolve(arena, parent)?;
-        //stmt.val.value.resolve(arena, parent)?;
-        Ok(())
     }
 }

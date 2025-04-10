@@ -10,6 +10,9 @@ pub mod resolve;
 /// Code to look up identifiers in the arena
 pub mod lookup;
 
+/// The prelude of predefined expressions
+pub mod prelude;
+
 /// A global pool of all desugared expressions, members, and blocks
 #[derive(Debug, Default)]
 pub struct DesugarArena {
@@ -27,49 +30,6 @@ pub struct DesugarArena {
 
     /// A global arena of all statements
     pub stmts: Arena<Node<Stmt>>,
-}
-
-impl DesugarArena {
-    /// Constructs a new [DesugarArena] with prelude symbols defined
-    pub fn new_prelude() -> (Self, Parent) {
-        let mut member_lists = Arena::default();
-        let mut members = Arena::default();
-        let mut exprs = Arena::default();
-
-        let u64ty = members.add(
-            Member {
-                field: Field::Ident(Ident::TIdent("U64".into()).unloc()).unloc(),
-                expr: exprs.add(Expr::Primitive(Primitive::U64Ty).unloc()),
-            }
-            .unloc(),
-        );
-
-        let assert_eq = members.add(
-            Member {
-                field: Field::Ident(Ident::TIdent("assert_eq".into()).unloc()).unloc(),
-                expr: exprs.add(Expr::Primitive(Primitive::Assert(Assertion::Eq)).unloc()),
-            }
-            .unloc(),
-        );
-
-        let member_list = member_lists.add(
-            MemberList {
-                members: vec![u64ty, assert_eq],
-                parent: None,
-            }
-            .unloc(),
-        );
-
-        let arena = Self {
-            member_lists,
-            members,
-            blocks: Arena::default(),
-            exprs,
-            stmts: Arena::default(),
-        };
-
-        (arena, Parent::MemberList(member_list))
-    }
 }
 
 /// An error that can occur during desugaring
@@ -160,7 +120,7 @@ pub struct Member {
 }
 
 /// An identifier
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum Ident {
     /// A value identifier
     VIdent(Arc<str>),
@@ -173,6 +133,18 @@ pub enum Ident {
 
     /// A resolved identifier
     Resolved(Handle<Node<Expr>>),
+}
+
+impl PartialEq for Ident {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::VIdent(lhs), Self::VIdent(rhs)) => lhs.as_ref() == rhs.as_ref(),
+            (Self::TIdent(lhs), Self::TIdent(rhs)) => lhs.as_ref() == rhs.as_ref(),
+            (Self::Hoist(lhs), Self::Hoist(rhs)) => lhs == rhs,
+            (Self::Resolved(_), Self::Resolved(_)) => unreachable!(),
+            _ => false,
+        }
+    }
 }
 
 /// A uniquely-named identifier
@@ -229,6 +201,16 @@ pub enum Field {
 
     /// A numbered (positional) field
     Number(u64),
+}
+
+impl PartialEq for Field {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Field::Ident(lhs), Field::Ident(rhs)) => lhs.val == rhs.val,
+            (Field::Number(lhs), Field::Number(rhs)) => lhs == rhs,
+            _ => false,
+        }
+    }
 }
 
 /// Converts the parse tree into the desugared abstract syntax tree

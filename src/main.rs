@@ -79,17 +79,17 @@ fn test_file(path: PathBuf) -> Result<TestResult, TestError> {
     let parse_tree = parser.parse().map_err(TestError::Parse)?;
     let parse_tree_str = format!("{}", parse_tree.val.printable(&()));
     let (mut arena, prelude) = DesugarArena::new_prelude();
-    let desugared = parse_tree
+    let ast = parse_tree
         .desugar(&mut arena, Some(prelude))
         .map_err(TestError::Desugar)?;
-    desugared
-        .resolve(&mut arena, Parent::MemberList(desugared))
+    ast.resolve(&mut arena, Parent::MemberList(ast))
         .map_err(TestError::Resolve)?;
-    let desugared_str = format!("{}", desugared.printable(&arena));
+    let desugared_str = format!("{}", ast.printable(&arena));
     let arena_str = format!("{}", arena.printable(&()));
+    ast.resolve(&mut arena, prelude)
+        .map_err(TestError::Resolve)?;
     let mut types = TypeArena::new_empty();
-    desugared
-        .assign_types(&arena, &mut types)
+    ast.assign_types(&arena, &mut types)
         .map_err(TestError::Type)?;
     //let flattened = desugared.flatten();
     Ok(TestResult {
