@@ -53,6 +53,12 @@ impl TypeArena {
     }
 }
 
+impl Default for TypeArena {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// An error that can occur during type checking
 #[derive(Clone, Debug)]
 pub enum TypeError {

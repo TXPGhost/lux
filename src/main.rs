@@ -1,6 +1,7 @@
 //! Compiler for the Lux programming language
 
 #![warn(missing_docs)]
+#![allow(unused)]
 
 use std::{
     fs::{DirEntry, File},

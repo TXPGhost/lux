@@ -1,4 +1,4 @@
-use crate::{arena::Handle, pretty_print::PrettyPrint};
+use crate::arena::Handle;
 
 use super::*;
 
