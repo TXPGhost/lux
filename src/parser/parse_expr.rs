@@ -154,7 +154,7 @@ impl Node<Expr> {
                 &[
                     Operator::Plus,
                     Operator::Minus,
-                    Operator::Length,
+                    Operator::Pound,
                     Operator::Intersection,
                     Operator::Times,
                 ],

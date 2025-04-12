@@ -212,7 +212,7 @@ impl AssignTypes for Handle<Node<Expr>> {
                         fargs.assign_types(arena, types)?;
                         fbody.assign_types(arena, types)?;
 
-                        // make sure the argument types match
+                        // make sure the argument types match (TODO: implement)
                         // let comparison = args.type_compare(fargs, arena, types);
                         // if !comparison.is_subtype() {
                         //     return Err(TypeError::FunctionArgumentMismatch);

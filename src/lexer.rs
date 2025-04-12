@@ -525,7 +525,7 @@ pub enum Operator {
     /// The question mark operator `?`
     Question,
     /// The length operator `#`
-    Length,
+    Pound,
     /// The range operator `..`
     Range,
     /// The double equal sign operator `==`
@@ -563,7 +563,7 @@ impl Operator {
             Operator::ThinArrow => OperatorChars::Double('-', '>'),
             Operator::FatArrow => OperatorChars::Double('=', '>'),
             Operator::Question => OperatorChars::Single('?'),
-            Operator::Length => OperatorChars::Single('#'),
+            Operator::Pound => OperatorChars::Single('#'),
             Operator::Range => OperatorChars::Double('.', '.'),
             Operator::DoubleEquals => OperatorChars::Double('=', '='),
             Operator::NotEquals => OperatorChars::Double('!', '='),

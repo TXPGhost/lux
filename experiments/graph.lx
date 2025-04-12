@@ -1,0 +1,14 @@
+Node(T {}) {
+	&value T
+	&next T* | null
+
+	new(value T) Node(value T, next null)
+
+	connect(&lhs Node, &rhs Node)
+		lhs.next := rhs*
+		rhs.next := lhs*
+
+	set_tail(%node Node, value T)
+		| node.next::T* => set_tail(%node.next.*, value)
+		| node.next::null => node.value := value
+}
