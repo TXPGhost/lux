@@ -18,6 +18,7 @@ pub struct TypeArena {
     arena: DesugarArena,
     unit: Handle<Node<Expr>>,
     empty: Handle<Node<Expr>>,
+    u64ty: Handle<Node<Expr>>,
     discovered_exprs: HashSet<Handle<Node<Expr>>>,
     discovered_member_lists: HashSet<Handle<Node<MemberList>>>,
     discovered_blocks: HashSet<Handle<Node<Block>>>,
@@ -38,6 +39,7 @@ impl TypeArena {
             arena: DesugarArena::default(),
             unit: Handle::from_idx(0),
             empty: Handle::from_idx(1),
+            u64ty: Handle::from_idx(2),
             discovered_exprs: HashSet::new(),
             discovered_member_lists: HashSet::new(),
             discovered_blocks: HashSet::new(),
@@ -63,6 +65,10 @@ impl TypeArena {
             .arena
             .exprs
             .add(Expr::Primitive(Primitive::Empty).unloc());
+        types
+            .arena
+            .exprs
+            .add(Expr::Primitive(Primitive::U64Ty).unloc());
 
         types
     }
@@ -134,18 +140,23 @@ impl AssignTypes for Handle<Node<Expr>> {
             Expr::Index(handle, handle1) => todo!("typecheck index"),
             Expr::Field(expr, field) => {
                 // assign types to the struct
+                println!("REACHED HERE");
                 expr.assign_types(arena, types)?;
 
                 // make sure we actually have a struct
-                let Expr::Struct(member_list) = arena.exprs.get(*expr).val else {
+                let expr_ty = types.map.get(*expr).unwrap();
+                println!("EXPR TY {}", expr_ty.printable(&types.arena));
+                let Expr::Struct(member_list) = types.arena.exprs.get(*expr_ty).val else {
                     return Err(TypeError::ExpectedStruct(arena.exprs.get(*expr).clone()));
                 };
 
-                let member_list = &arena.member_lists.get(member_list).val;
+                let member_list = &types.arena.member_lists.get(member_list).val;
                 for member in &member_list.members {
-                    let member = &arena.members.get(*member).val;
+                    let member = &types.arena.members.get(*member).val;
+                    println!("MEMBER NAME {:?}", member.field);
+                    println!("MEMBER VAL {}", member.expr.printable(&types.arena));
                     if member.field.val == field.val {
-                        types.map.insert(self, *types.map.get(member.expr).unwrap());
+                        types.map.insert(self, member.expr);
                         return Ok(());
                     }
                 }
@@ -153,6 +164,7 @@ impl AssignTypes for Handle<Node<Expr>> {
                 Err(TypeError::UnrecognizedStructField(field.clone()))
             }
             Expr::Struct(member_list) | Expr::Enum(member_list) => {
+                println!("\nASSIGNING STRUCT TYPES {}", member_list.printable(arena));
                 // assign types to each member
                 member_list.assign_types(arena, types)?;
 
@@ -193,6 +205,7 @@ impl AssignTypes for Handle<Node<Expr>> {
                 Ok(())
             }
             Expr::Call(func, args) => {
+                println!("ASSIGNING TYPES TO CALL EXPR");
                 // assign types to the function call and the arguments
                 func.assign_types(arena, types)?;
                 args.assign_types(arena, types)?;
@@ -208,6 +221,7 @@ impl AssignTypes for Handle<Node<Expr>> {
                 // make sure we actually have a function type (TODO: constructors)
                 match arena.exprs.get(func).val {
                     Expr::Func(fargs, fbody) => {
+                        println!("FUNC!!!!!");
                         // assign types to the function's arguments and body
                         fargs.assign_types(arena, types)?;
                         fbody.assign_types(arena, types)?;
@@ -219,6 +233,11 @@ impl AssignTypes for Handle<Node<Expr>> {
                         // }
 
                         // the type of the call expression equals the (return) type of the function body
+                        println!("FBODY {}", fbody.printable(arena));
+                        println!(
+                            "INSERTING TYPE {}",
+                            types.map.get(fbody).unwrap().printable(&types.arena)
+                        );
                         types.map.insert(self, *types.map.get(fbody).unwrap());
 
                         Ok(())
@@ -242,29 +261,13 @@ impl AssignTypes for Handle<Node<Expr>> {
                             };
                         }
 
-                        // debug print returns the unit type
-                        let unit_members = types.arena.member_lists.add(
-                            MemberList {
-                                members: Vec::new(),
-                                parent: None,
-                            }
-                            .unloc(),
-                        );
-                        let unit = types.arena.exprs.add(Expr::Struct(unit_members).unloc());
-                        types.map.insert(self, unit);
+                        // return a u64 type
+                        types.map.insert(self, types.u64ty);
                         Ok(())
                     }
                     Expr::Primitive(Primitive::DebugPrint | Primitive::Assert(_)) => {
                         // these functions return unit type
-                        let unit_members = types.arena.member_lists.add(
-                            MemberList {
-                                members: Vec::new(),
-                                parent: None,
-                            }
-                            .unloc(),
-                        );
-                        let unit = types.arena.exprs.add(Expr::Struct(unit_members).unloc());
-                        types.map.insert(self, unit);
+                        types.map.insert(self, types.unit);
                         Ok(())
                     }
                     _ => Err(TypeError::ExpectedFunction(arena.exprs.get(func).clone())),

@@ -1,4 +1,4 @@
-use crate::arena::Handle;
+use crate::{arena::Handle, pretty_print::PrettyPrint};
 
 use super::{
     lookup::{Lookup, LookupError},
@@ -38,6 +38,11 @@ impl Resolve for Handle<Node<Expr>> {
                 let body = *body;
                 args.resolve(arena, parent)?;
                 body.resolve(arena, parent)?;
+                Ok(())
+            }
+            Expr::Field(expr, field) => {
+                let expr = *expr;
+                expr.resolve(arena, parent)?;
                 Ok(())
             }
             _ => Ok(()),
