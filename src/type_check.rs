@@ -102,7 +102,7 @@ pub enum TypeError {
     RecursiveIdent(Node<Ident>),
 
     /// An illegal type was used as part of a binary operation
-    IllegalBinopType(Node<Expr>, Operator),
+    IllegalBinopType(Handle<Node<Expr>>, Operator),
 
     /// A part of the typechecker is unimplemented
     Unimplemented(String),
@@ -140,12 +140,10 @@ impl AssignTypes for Handle<Node<Expr>> {
             Expr::Index(handle, handle1) => todo!("typecheck index"),
             Expr::Field(expr, field) => {
                 // assign types to the struct
-                println!("REACHED HERE");
                 expr.assign_types(arena, types)?;
 
                 // make sure we actually have a struct
                 let expr_ty = types.map.get(*expr).unwrap();
-                println!("EXPR TY {}", expr_ty.printable(&types.arena));
                 let Expr::Struct(member_list) = types.arena.exprs.get(*expr_ty).val else {
                     return Err(TypeError::ExpectedStruct(arena.exprs.get(*expr).clone()));
                 };
@@ -153,8 +151,6 @@ impl AssignTypes for Handle<Node<Expr>> {
                 let member_list = &types.arena.member_lists.get(member_list).val;
                 for member in &member_list.members {
                     let member = &types.arena.members.get(*member).val;
-                    println!("MEMBER NAME {:?}", member.field);
-                    println!("MEMBER VAL {}", member.expr.printable(&types.arena));
                     if member.field.val == field.val {
                         types.map.insert(self, member.expr);
                         return Ok(());
@@ -164,7 +160,6 @@ impl AssignTypes for Handle<Node<Expr>> {
                 Err(TypeError::UnrecognizedStructField(field.clone()))
             }
             Expr::Struct(member_list) | Expr::Enum(member_list) => {
-                println!("\nASSIGNING STRUCT TYPES {}", member_list.printable(arena));
                 // assign types to each member
                 member_list.assign_types(arena, types)?;
 
@@ -205,7 +200,6 @@ impl AssignTypes for Handle<Node<Expr>> {
                 Ok(())
             }
             Expr::Call(func, args) => {
-                println!("ASSIGNING TYPES TO CALL EXPR");
                 // assign types to the function call and the arguments
                 func.assign_types(arena, types)?;
                 args.assign_types(arena, types)?;
@@ -221,7 +215,6 @@ impl AssignTypes for Handle<Node<Expr>> {
                 // make sure we actually have a function type (TODO: constructors)
                 match arena.exprs.get(func).val {
                     Expr::Func(fargs, fbody) => {
-                        println!("FUNC!!!!!");
                         // assign types to the function's arguments and body
                         fargs.assign_types(arena, types)?;
                         fbody.assign_types(arena, types)?;
@@ -233,11 +226,6 @@ impl AssignTypes for Handle<Node<Expr>> {
                         // }
 
                         // the type of the call expression equals the (return) type of the function body
-                        println!("FBODY {}", fbody.printable(arena));
-                        println!(
-                            "INSERTING TYPE {}",
-                            types.map.get(fbody).unwrap().printable(&types.arena)
-                        );
                         types.map.insert(self, *types.map.get(fbody).unwrap());
 
                         Ok(())
@@ -249,20 +237,32 @@ impl AssignTypes for Handle<Node<Expr>> {
                             unreachable!();
                         }
 
-                        // make sure the arguments are integer types
-                        for arg in &args.members {
-                            let arg = &arena.members.get(*arg).val;
-                            assert!(matches!(arg.field.val, Field::Number(_)));
-                            let arg_ty = types.arena.exprs.get(*types.map.get(arg.expr).unwrap());
-                            match &arg_ty.val {
-                                Expr::Primitive(Primitive::U64Ty) => (),
-                                Expr::Primitive(Primitive::U64Val(_)) => (),
-                                _ => return Err(TypeError::IllegalBinopType(arg_ty.clone(), op)),
-                            };
-                        }
+                        // make sure we in fact have two arguments (this should always be the case)
+                        assert!(args.members.len() == 2);
+
+                        // check the type of the arguments
+                        let lhs = &arena.members.get(args.members[0]).val;
+                        let rhs = &arena.members.get(args.members[1]).val;
+                        assert!(matches!((lhs.field.val), Field::Number(_)));
+                        assert!(matches!((rhs.field.val), Field::Number(_)));
+
+                        // match on the argument types
+                        let lhs_ty = types.arena.exprs.get(*types.map.get(lhs.expr).unwrap());
+                        let rhs_ty = types.arena.exprs.get(*types.map.get(rhs.expr).unwrap());
+                        let ret_ty = match (&lhs_ty.val, &rhs_ty.val) {
+                            (
+                                Expr::Primitive(Primitive::U64Ty | Primitive::U64Val(_)),
+                                Expr::Primitive(Primitive::U64Ty | Primitive::U64Val(_)),
+                            ) => types.u64ty,
+                            (Expr::Primitive(Primitive::Empty), _) => types.empty,
+                            (_, Expr::Primitive(Primitive::Empty)) => types.empty,
+                            _ => {
+                                return Err(TypeError::IllegalBinopType(self, op));
+                            }
+                        };
 
                         // return a u64 type
-                        types.map.insert(self, types.u64ty);
+                        types.map.insert(self, ret_ty);
                         Ok(())
                     }
                     Expr::Primitive(Primitive::DebugPrint | Primitive::Assert(_)) => {
