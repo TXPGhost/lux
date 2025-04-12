@@ -20,15 +20,7 @@ pub struct TypeArena {
     empty: Handle<Node<Expr>>,
     u64ty: Handle<Node<Expr>>,
     discovered_exprs: HashSet<Handle<Node<Expr>>>,
-    discovered_member_lists: HashSet<Handle<Node<MemberList>>>,
-    discovered_blocks: HashSet<Handle<Node<Block>>>,
-    discovered_members: HashSet<Handle<Node<Member>>>,
-    discovered_stmts: HashSet<Handle<Node<Stmt>>>,
     recursive_exprs: HashSet<Handle<Node<Expr>>>,
-    recursive_member_lists: HashSet<Handle<Node<MemberList>>>,
-    recursive_blocks: HashSet<Handle<Node<Block>>>,
-    recursive_members: HashSet<Handle<Node<Member>>>,
-    recursive_stmts: HashSet<Handle<Node<Stmt>>>,
 }
 
 impl TypeArena {
@@ -41,15 +33,7 @@ impl TypeArena {
             empty: Handle::from_idx(1),
             u64ty: Handle::from_idx(2),
             discovered_exprs: HashSet::new(),
-            discovered_member_lists: HashSet::new(),
-            discovered_blocks: HashSet::new(),
-            discovered_members: HashSet::new(),
-            discovered_stmts: HashSet::new(),
             recursive_exprs: HashSet::new(),
-            recursive_member_lists: HashSet::new(),
-            recursive_blocks: HashSet::new(),
-            recursive_members: HashSet::new(),
-            recursive_stmts: HashSet::new(),
         };
 
         // add the unit and empty types
@@ -212,6 +196,9 @@ impl AssignTypes for Handle<Node<Expr>> {
                     }
                 }
 
+                let func_loc = arena.exprs.get(func).loc;
+                let args_loc = arena.member_lists.get(*args).loc;
+
                 // make sure we actually have a function type (TODO: constructors)
                 match arena.exprs.get(func).val {
                     Expr::Func(fargs, fbody) => {
@@ -246,10 +233,26 @@ impl AssignTypes for Handle<Node<Expr>> {
                         assert!(matches!((lhs.field.val), Field::Number(_)));
                         assert!(matches!((rhs.field.val), Field::Number(_)));
 
+                        // for now we only support math operations
+                        if !matches!(
+                            op,
+                            Operator::Plus | Operator::Minus | Operator::Times | Operator::Divide
+                        ) {
+                            println!("WARNING: UNSUPPORTED OPERATOR {:?}", op);
+                        }
+
                         // match on the argument types
                         let lhs_ty = types.arena.exprs.get(*types.map.get(lhs.expr).unwrap());
                         let rhs_ty = types.arena.exprs.get(*types.map.get(rhs.expr).unwrap());
                         let ret_ty = match (&lhs_ty.val, &rhs_ty.val) {
+                            (
+                                Expr::Primitive(Primitive::U64Val(x)),
+                                Expr::Primitive(Primitive::U64Val(y)),
+                            ) => {
+                                // perform constant folding on two known values
+                                let result = Expr::Primitive(Primitive::U64Val(x + y));
+                                types.arena.exprs.add(result.node(*loc))
+                            }
                             (
                                 Expr::Primitive(Primitive::U64Ty | Primitive::U64Val(_)),
                                 Expr::Primitive(Primitive::U64Ty | Primitive::U64Val(_)),
@@ -268,6 +271,43 @@ impl AssignTypes for Handle<Node<Expr>> {
                     Expr::Primitive(Primitive::DebugPrint | Primitive::Assert(_)) => {
                         // these functions return unit type
                         types.map.insert(self, types.unit);
+                        Ok(())
+                    }
+                    Expr::Struct(member_list) => {
+                        // assign types to the struct members
+                        member_list.assign_types(arena, types)?;
+
+                        let members = &arena.member_lists.get(member_list).val.members;
+                        let mut member_types = Vec::new();
+                        for member in members {
+                            let member = &arena.members.get(*member);
+                            let member_ty = types.map.get(member.val.expr).unwrap();
+
+                            // TODO: check subtyping
+
+                            member_types.push(
+                                types.arena.members.add(
+                                    Member {
+                                        field: member.val.field.clone(),
+                                        expr: *member_ty,
+                                    }
+                                    .node(member.loc),
+                                ),
+                            );
+                        }
+                        let struct_ty = Expr::Struct(
+                            types.arena.member_lists.add(
+                                MemberList {
+                                    parent: None,
+                                    members: member_types,
+                                }
+                                .node(args_loc),
+                            ),
+                        );
+                        types
+                            .map
+                            .insert(self, types.arena.exprs.add(struct_ty.node(*loc)));
+
                         Ok(())
                     }
                     _ => Err(TypeError::ExpectedFunction(arena.exprs.get(func).clone())),
@@ -354,11 +394,6 @@ impl AssignTypes for Handle<Node<Expr>> {
 
 impl AssignTypes for Handle<Node<MemberList>> {
     fn assign_types(self, arena: &DesugarArena, types: &mut TypeArena) -> Result<(), TypeError> {
-        if types.discovered_member_lists.contains(&self) {
-            types.recursive_member_lists.insert(self);
-            return Ok(());
-        }
-        types.discovered_member_lists.insert(self);
         let member_list = &arena.member_lists.get(self).val;
         for member in &member_list.members {
             member.assign_types(arena, types)?;
@@ -369,11 +404,6 @@ impl AssignTypes for Handle<Node<MemberList>> {
 
 impl AssignTypes for Handle<Node<Block>> {
     fn assign_types(self, arena: &DesugarArena, types: &mut TypeArena) -> Result<(), TypeError> {
-        if types.discovered_blocks.contains(&self) {
-            types.recursive_blocks.insert(self);
-            return Ok(());
-        }
-        types.discovered_blocks.insert(self);
         let block = &arena.blocks.get(self).val;
         for stmt in &block.stmts {
             stmt.assign_types(arena, types)?;
@@ -384,11 +414,6 @@ impl AssignTypes for Handle<Node<Block>> {
 
 impl AssignTypes for Handle<Node<Member>> {
     fn assign_types(self, arena: &DesugarArena, types: &mut TypeArena) -> Result<(), TypeError> {
-        if types.discovered_members.contains(&self) {
-            types.recursive_members.insert(self);
-            return Ok(());
-        }
-        types.discovered_members.insert(self);
         let member = &arena.members.get(self).val;
         member.expr.assign_types(arena, types)?;
         Ok(())
@@ -397,11 +422,6 @@ impl AssignTypes for Handle<Node<Member>> {
 
 impl AssignTypes for Handle<Node<Stmt>> {
     fn assign_types(self, arena: &DesugarArena, types: &mut TypeArena) -> Result<(), TypeError> {
-        if types.discovered_stmts.contains(&self) {
-            types.recursive_stmts.insert(self);
-            return Ok(());
-        }
-        types.discovered_stmts.insert(self);
         let stmt = &arena.stmts.get(self).val;
         stmt.ty.assign_types(arena, types)?;
         stmt.value.assign_types(arena, types)?;
